@@ -1,6 +1,5 @@
-from flask import Flask, url_for, redirect, request, render_template
+from flask import Flask, url_for, redirect, request, render_template, session
 from flask_socketio import SocketIO, emit, send, join_room, leave_room
-
 
 import sqlite3
 import uuid
@@ -8,6 +7,10 @@ import uuid
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
 socketio = SocketIO(app)
+# Run command
+# flask --app main run --debug
+
+# app.secret_key = "7f7c27265646902d9775e9fa1369fbf200cde69c"
 
 
 def dict_factory(cursor, row):
@@ -17,13 +20,39 @@ def dict_factory(cursor, row):
     return d
 
 
+def _join_player_to_room(player_name, room_id):
+    # TODO: validate player_name and room_id
+    con = sqlite3.connect("insulars.db")
+    con.row_factory = dict_factory
+    cur = con.cursor()
+    res = cur.execute(f"SELECT uid FROM rooms WHERE uid='{room_id}'")
+    room = res.fetchone()
+    if not room:
+        raise Exception("Room not found.")
+
+    res = cur.execute(
+        "SELECT player_name FROM room_players WHERE room_id=:room_id AND player_name=:player_name",
+        {"room_id": room_id, "player_name": player_name},
+    )
+    player = res.fetchone()
+    if player:
+        raise Exception("Name is already used. Try another one.")
+
+    cur.execute(
+        f"""INSERT INTO room_players (room_id, player_name) VALUES ('{room_id}', '{player_name}')"""
+    )
+    con.commit()
+    session["player_name"] = player_name
+
+
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", room_id=request.args.get("room_id", ""))
 
 
-@app.route("/room/<room_id>/<player_name>", methods=["GET"])
-def room(room_id, player_name):
+@app.route("/room/<room_id>", methods=["GET"])
+def room(room_id):
+    player_name = session.get("player_name")
     return render_template("app.html", player_name=player_name, room_id=room_id)
 
 
@@ -32,40 +61,33 @@ def create_room():
     player_name = request.form["player_name"]
     con = sqlite3.connect("insulars.db")
     cur = con.cursor()
-    room_id = uuid.uuid4()
+    room_id = str(uuid.uuid4())
     cur.execute(f"""INSERT INTO rooms VALUES ('{room_id}')""")
     con.commit()
-    return redirect(url_for("room", room_id=room_id, player_name=player_name))
+    _join_player_to_room(player_name=player_name, room_id=room_id)
+    return redirect(url_for("room", room_id=room_id))
 
 
 @app.route("/join_room", methods=["POST"])
 def handle_join_room():
-    # TODO: validate player_name and room_id
-    player_name = request.form["player_name"]
     room_id = request.form["room_id"]
-    return redirect(url_for("room", room_id=room_id, player_name=player_name))
+    player_name = request.form["player_name"]
+    _join_player_to_room(player_name=player_name, room_id=room_id)
+    return redirect(url_for("room", room_id=room_id))
 
 
 @socketio.on("player_enter")
 def handle_player_enter(json):
-    print(f"received args: {json}")
-    print(request.sid)
-    print(json)
     room_id = json["room_id"]
-    player_name = json["player_name"]
-    join_room(room_id)
+
     con = sqlite3.connect("insulars.db")
     con.row_factory = dict_factory
     cur = con.cursor()
-    cur.execute(
-        f"""INSERT INTO room_players (room_id, player_name, sid) VALUES ('{room_id}', '{player_name}', '{request.sid}')"""
-    )
-    con.commit()
 
     res = cur.execute(f"SELECT player_name FROM room_players WHERE room_id='{room_id}'")
     players = res.fetchall()
-    # players = [x[0] for x in players]
-    print(players)
+    print("connected 2")
+    join_room(room_id)
     emit("room_entered", {"players": players}, to=room_id)
 
 
