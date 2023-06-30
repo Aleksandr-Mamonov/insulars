@@ -4,6 +4,8 @@ from flask_socketio import SocketIO, emit, send, join_room, leave_room
 import sqlite3
 import uuid
 
+from config import MIN_PLAYERS, MAX_PLAYERS
+
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
 socketio = SocketIO(app)
@@ -88,7 +90,14 @@ def handle_player_enter(json):
     players = res.fetchall()
     print("connected 2")
     join_room(room_id)
-    emit("room_entered", {"players": players}, to=room_id)
+    emit(
+        "room_entered",
+        {
+            "players": players,
+            "config": {"MIN_PLAYERS": MIN_PLAYERS, "MAX_PLAYERS": MAX_PLAYERS},
+        },
+        to=room_id,
+    )
 
 
 if __name__ == "__main__":

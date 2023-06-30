@@ -16,6 +16,7 @@
     <ul>
         <li v-for="player in players">${player.player_name}$</li>
     </ul>
+    <button :disabled="players.length < config.MIN_PLAYERS || players.length > config.MAX_PLAYERS">Start game</button>
 
 
     <script type="text/javascript" charset="utf-8">
@@ -27,7 +28,8 @@
                 return {
                     playerName: '{{ player_name }}',
                     roomId: '{{ room_id }}',
-                    players: ref([])
+                    players: ref([]),
+                    config: {}
                 }
             },
             mounted() {
@@ -38,10 +40,8 @@
                     socket.emit('player_enter', { "player_name": vm.playerName, "room_id": vm.roomId });
                 });
                 socket.on("room_entered", (arg) => {
-                    console.log(vm.playerName)
-                    console.log(arg.players)
                     vm.players = arg.players;
-
+                    vm.config = arg.config;
                 });
             },
             delimiters: ["${", "}$"],
