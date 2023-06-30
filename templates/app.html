@@ -14,9 +14,11 @@
     <p>${playerName}$</p>
     <h1>Room</h1>
     <ul>
-        <li v-for="player in players">${player.player_name}$</li>
+        <li v-for="p in players">${p.player_name}$</li>
     </ul>
-    <button :disabled="players.length < config.MIN_PLAYERS || players.length > config.MAX_PLAYERS">Start game</button>
+    ${player}$
+    <button :disabled="players.length < config.MIN_PLAYERS || players.length > config.MAX_PLAYERS"
+        v-if="player.is_owner">Start game</button>
 
 
     <script type="text/javascript" charset="utf-8">
@@ -24,12 +26,16 @@
 
         createApp({
             setup() {
-
                 return {
                     playerName: '{{ player_name }}',
                     roomId: '{{ room_id }}',
                     players: ref([]),
-                    config: {}
+                    config: {},
+                }
+            },
+            computed: {
+                player() {
+                    return this.players.filter(p => p.player_name == this.playerName)[0] || {}
                 }
             },
             mounted() {
@@ -44,7 +50,9 @@
                     vm.config = arg.config;
                 });
             },
+
             delimiters: ["${", "}$"],
+
         }).mount('#app')
 
 

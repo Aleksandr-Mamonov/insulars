@@ -64,7 +64,10 @@ def create_room():
     con = sqlite3.connect("insulars.db")
     cur = con.cursor()
     room_id = str(uuid.uuid4())
-    cur.execute(f"""INSERT INTO rooms VALUES ('{room_id}')""")
+    # TODO: parameters SQL
+    cur.execute(
+        f"""INSERT INTO rooms (uid, owner) VALUES ('{room_id}', '{player_name}')"""
+    )
     con.commit()
     _join_player_to_room(player_name=player_name, room_id=room_id)
     return redirect(url_for("room", room_id=room_id))
@@ -86,8 +89,16 @@ def handle_player_enter(json):
     con.row_factory = dict_factory
     cur = con.cursor()
 
-    res = cur.execute(f"SELECT player_name FROM room_players WHERE room_id='{room_id}'")
+    res = cur.execute(
+        """
+    SELECT rp.player_name, r.owner=rp.player_name AS is_owner FROM room_players AS rp
+    INNER JOIN rooms AS r ON r.uid=rp.room_id
+    WHERE rp.room_id=:room_id
+    """,
+        {"room_id": room_id},
+    )
     players = res.fetchall()
+
     print("connected 2")
     join_room(room_id)
     emit(
