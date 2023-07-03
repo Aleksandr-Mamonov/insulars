@@ -21,6 +21,7 @@
             v-if="player.is_owner" @click="startGame">Start game</button>
     </div>
     <div id="game-layout" v-if="game !== null">
+        ${game.round}$
         <button @click="endGame">End game</button>
     </div>
 
@@ -60,6 +61,7 @@
                 socket.on("room_entered", (arg) => {
                     vm.players = arg.players;
                     vm.config = arg.config;
+                    vm.game = arg.game
                 });
                 socket.on('game_started', (arg) => {
                     console.log(arg)

@@ -1,6 +1,7 @@
 from flask import Flask, url_for, redirect, request, render_template, session
 from flask_socketio import SocketIO, emit, send, join_room, leave_room
 
+import json
 import sqlite3
 import uuid
 
@@ -82,16 +83,19 @@ def handle_join_room():
 
 
 @socketio.on("player_enter")
-def handle_player_enter(json):
-    room_id = json["room_id"]
+def handle_player_enter(data):
+    room_id = data["room_id"]
+    join_room(room_id)
 
     con = sqlite3.connect("insulars.db")
     con.row_factory = dict_factory
     cur = con.cursor()
-
     res = cur.execute(
         """
-    SELECT rp.player_name, r.owner=rp.player_name AS is_owner FROM room_players AS rp
+    SELECT
+        rp.player_name, 
+        r.owner=rp.player_name AS is_owner
+    FROM room_players AS rp
     INNER JOIN rooms AS r ON r.uid=rp.room_id
     WHERE rp.room_id=:room_id
     """,
@@ -99,34 +103,57 @@ def handle_player_enter(json):
     )
     players = res.fetchall()
 
-    print("connected 2")
-    join_room(room_id)
+    room = cur.execute(
+        """
+    SELECT game FROM rooms WHERE uid=:room_id
+    """,
+        {"room_id": room_id},
+    ).fetchone()
     emit(
         "room_entered",
         {
             "players": players,
             "config": {"MIN_PLAYERS": MIN_PLAYERS, "MAX_PLAYERS": MAX_PLAYERS},
+            "game": json.loads(room["game"]) if room["game"] else None,
         },
         to=room_id,
     )
 
 
 @socketio.on("start_game")
-def handle_game_start(json):
-    print(json)
+def handle_game_start(data):
+    game = {"round": 1}
+    con = sqlite3.connect("insulars.db")
+    con.row_factory = dict_factory
+    cur = con.cursor()
+
+    cur.execute(
+        "UPDATE rooms SET game=:game WHERE uid=:room_id",
+        {"game": json.dumps(game), "room_id": data["room_id"]},
+    )
+    con.commit()
     emit(
         "game_started",
-        {"game": {}},
-        to=json["room_id"],
+        {"game": game},
+        to=data["room_id"],
     )
 
 
 @socketio.on("end_game")
-def handle_game_end(json):
+def handle_game_end(data):
+    con = sqlite3.connect("insulars.db")
+    con.row_factory = dict_factory
+    cur = con.cursor()
+
+    cur.execute(
+        "UPDATE rooms SET game=NULL WHERE uid=:room_id",
+        {"room_id": data["room_id"]},
+    )
+    con.commit()
     emit(
         "game_ended",
         {"msg": "Game ended!"},
-        to=json["room_id"],
+        to=data["room_id"],
     )
 
 
