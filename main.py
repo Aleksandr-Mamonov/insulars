@@ -111,5 +111,14 @@ def handle_player_enter(json):
     )
 
 
+@socketio.on("start_game")
+def handle_player_enter(json):
+    emit(
+        "game_started",
+        {"msg": "Game started!"},
+        to=json["room_id"],
+    )
+
+
 if __name__ == "__main__":
     socketio.run(app)

@@ -5,4 +5,3 @@ ROADMAP:
 
 Vue.js: lifecycle, data binding
 SQLAlchemy
-
