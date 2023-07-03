@@ -10,16 +10,19 @@
 <body id="app">
 
     <p><a href="/">Main</a></p>
-    <a href="/?room_id={{room_id}}">Invite another player</a>
-    <p>${playerName}$</p>
-    <h1>Room</h1>
-    <ul>
-        <li v-for="p in players">${p.player_name}$</li>
-    </ul>
-    ${player}$
-    <button :disabled="players.length < config.MIN_PLAYERS || players.length > config.MAX_PLAYERS"
-        v-if="player.is_owner" v-on:click="startGame">Start game</button>
-
+    <div id="lobby-layout" v-if="game === null">
+        <a href="/?room_id={{room_id}}">Invite another player</a>
+        <p>${playerName}$</p>
+        <h1>Room</h1>
+        <ul>
+            <li v-for="p in players">${p.player_name}$</li>
+        </ul>
+        <button :disabled="players.length < config.MIN_PLAYERS || players.length > config.MAX_PLAYERS"
+            v-if="player.is_owner" @click="startGame">Start game</button>
+    </div>
+    <div id="game-layout" v-if="game !== null">
+        <button @click="endGame">End game</button>
+    </div>
 
     <script type="text/javascript" charset="utf-8">
         const { createApp, ref } = Vue
@@ -31,6 +34,7 @@
                     roomId: '{{ room_id }}',
                     players: ref([]),
                     config: {},
+                    game: ref(null),
                 }
             },
             computed: {
@@ -41,7 +45,11 @@
             methods: {
                 startGame() {
                     socket.emit('start_game', { "room_id": this.roomId });
-                }
+                    console.log('started game')
+                },
+                endGame() {
+                    socket.emit('end_game', { "room_id": this.roomId });
+                },
             },
             mounted() {
                 let vm = this;
@@ -54,7 +62,11 @@
                     vm.config = arg.config;
                 });
                 socket.on('game_started', (arg) => {
-                    console.log(arg.msg)
+                    console.log(arg)
+                    vm.game = arg.game
+                });
+                socket.on('game_ended', (arg) => {
+                    vm.game = null
                 })
             },
 

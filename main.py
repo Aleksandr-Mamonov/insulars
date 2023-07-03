@@ -112,10 +112,20 @@ def handle_player_enter(json):
 
 
 @socketio.on("start_game")
-def handle_player_enter(json):
+def handle_game_start(json):
+    print(json)
     emit(
         "game_started",
-        {"msg": "Game started!"},
+        {"game": {}},
+        to=json["room_id"],
+    )
+
+
+@socketio.on("end_game")
+def handle_game_end(json):
+    emit(
+        "game_ended",
+        {"msg": "Game ended!"},
         to=json["room_id"],
     )
 
