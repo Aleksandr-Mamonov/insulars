@@ -4,4 +4,12 @@ ROADMAP:
     css framework
 
 Vue.js: lifecycle, data binding
-SQLAlchemy
+
+
+TODO:
+read - conventionalcommits.org
+- create branch db_usage_refactoring
+- Raw SQL refactoring
+- merge request
+
+
