@@ -6,6 +6,7 @@ import sqlite3
 import uuid
 
 from config import MIN_PLAYERS, MAX_PLAYERS
+from database import select_one_from_db, select_all_from_db, write_to_db
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
@@ -16,35 +17,26 @@ socketio = SocketIO(app)
 # app.secret_key = "7f7c27265646902d9775e9fa1369fbf200cde69c"
 
 
-def dict_factory(cursor, row):
-    d = {}
-    for idx, col in enumerate(cursor.description):
-        d[col[0]] = row[idx]
-    return d
-
-
 def _join_player_to_room(player_name, room_id):
     # TODO: validate player_name and room_id
-    con = sqlite3.connect("insulars.db")
-    con.row_factory = dict_factory
-    cur = con.cursor()
-    res = cur.execute(f"SELECT uid FROM rooms WHERE uid='{room_id}'")
-    room = res.fetchone()
+    room = select_one_from_db(
+        "SELECT uid FROM rooms WHERE uid=:room_id",
+        {"room_id": room_id},
+    )
     if not room:
         raise Exception("Room not found.")
 
-    res = cur.execute(
+    player = select_one_from_db(
         "SELECT player_name FROM room_players WHERE room_id=:room_id AND player_name=:player_name",
         {"room_id": room_id, "player_name": player_name},
     )
-    player = res.fetchone()
     if player:
         raise Exception("Name is already used. Try another one.")
 
-    cur.execute(
-        f"""INSERT INTO room_players (room_id, player_name) VALUES ('{room_id}', '{player_name}')"""
+    write_to_db(
+        "INSERT INTO room_players (room_id, player_name) VALUES (:room_id, :player_name)",
+        {"room_id": room_id, "player_name": player_name},
     )
-    con.commit()
     session["player_name"] = player_name
 
 
@@ -62,14 +54,11 @@ def room(room_id):
 @app.route("/create_room", methods=["POST"])
 def create_room():
     player_name = request.form["player_name"]
-    con = sqlite3.connect("insulars.db")
-    cur = con.cursor()
     room_id = str(uuid.uuid4())
-    # TODO: parameters SQL
-    cur.execute(
-        f"""INSERT INTO rooms (uid, owner) VALUES ('{room_id}', '{player_name}')"""
+    write_to_db(
+        "INSERT INTO rooms (uid, owner) VALUES (:room_id, :player_name)",
+        {"room_id": room_id, "player_name": player_name},
     )
-    con.commit()
     _join_player_to_room(player_name=player_name, room_id=room_id)
     return redirect(url_for("room", room_id=room_id))
 
@@ -87,10 +76,7 @@ def handle_player_enter(data):
     room_id = data["room_id"]
     join_room(room_id)
 
-    con = sqlite3.connect("insulars.db")
-    con.row_factory = dict_factory
-    cur = con.cursor()
-    res = cur.execute(
+    players = select_all_from_db(
         """
     SELECT
         rp.player_name, 
@@ -101,14 +87,11 @@ def handle_player_enter(data):
     """,
         {"room_id": room_id},
     )
-    players = res.fetchall()
 
-    room = cur.execute(
-        """
-    SELECT game FROM rooms WHERE uid=:room_id
-    """,
+    room = select_one_from_db(
+        "SELECT game FROM rooms WHERE uid=:room_id",
         {"room_id": room_id},
-    ).fetchone()
+    )
     emit(
         "room_entered",
         {
@@ -123,15 +106,10 @@ def handle_player_enter(data):
 @socketio.on("start_game")
 def handle_game_start(data):
     game = {"round": 1}
-    con = sqlite3.connect("insulars.db")
-    con.row_factory = dict_factory
-    cur = con.cursor()
-
-    cur.execute(
+    write_to_db(
         "UPDATE rooms SET game=:game WHERE uid=:room_id",
         {"game": json.dumps(game), "room_id": data["room_id"]},
     )
-    con.commit()
     emit(
         "game_started",
         {"game": game},
@@ -141,15 +119,9 @@ def handle_game_start(data):
 
 @socketio.on("end_game")
 def handle_game_end(data):
-    con = sqlite3.connect("insulars.db")
-    con.row_factory = dict_factory
-    cur = con.cursor()
-
-    cur.execute(
-        "UPDATE rooms SET game=NULL WHERE uid=:room_id",
-        {"room_id": data["room_id"]},
+    write_to_db(
+        "UPDATE rooms SET game=NULL WHERE uid=:room_id", {"room_id": data["room_id"]}
     )
-    con.commit()
     emit(
         "game_ended",
         {"msg": "Game ended!"},
