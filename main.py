@@ -5,7 +5,7 @@ import json
 import sqlite3
 import uuid
 
-from config import MIN_PLAYERS, MAX_PLAYERS
+from config import MIN_PLAYERS, MAX_PLAYERS, GAME_ROUNDS
 from database import select_one_from_db, select_all_from_db, write_to_db
 
 app = Flask(__name__)
@@ -87,6 +87,7 @@ def handle_player_enter(data):
     """,
         {"room_id": room_id},
     )
+    print(players)
 
     room = select_one_from_db(
         "SELECT game FROM rooms WHERE uid=:room_id",
@@ -117,6 +118,33 @@ def handle_game_start(data):
     )
 
 
+@socketio.on("end_round")
+def handle_round_end(data):
+    result = select_one_from_db(
+        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": data["room_id"]}
+    )
+    game = result["game"]
+    # Update to next round
+    game = json.loads(game)
+    game["round"] += 1
+
+    # That was last round, so game ended. Show game results.
+    if game["round"] > GAME_ROUNDS:
+        # TODO
+        data["game_results"] = "Results of a game..."
+        handle_game_end(data=data)
+    else:
+        write_to_db(
+            "UPDATE rooms SET game=:game WHERE uid=:room_id",
+            {"game": json.dumps(game), "room_id": data["room_id"]},
+        )
+        emit(
+            "round_started",
+            {"game": game},
+            to=data["room_id"],
+        )
+
+
 @socketio.on("end_game")
 def handle_game_end(data):
     write_to_db(
@@ -124,7 +152,7 @@ def handle_game_end(data):
     )
     emit(
         "game_ended",
-        {"msg": "Game ended!"},
+        {"msg": "Game ended!", "Game results": data.get("game_results")},
         to=data["room_id"],
     )
 

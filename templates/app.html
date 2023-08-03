@@ -21,9 +21,11 @@
             v-if="player.is_owner" @click="startGame">Start game</button>
     </div>
     <div id="game-layout" v-if="game !== null">
-        ${game.round}$
+        <p>Round: ${game.round}$</p>
         <button @click="endGame">End game</button>
+        <button @click="endRound">End ${game.round}$ round</button>
     </div>
+
 
     <script type="text/javascript" charset="utf-8">
         const { createApp, ref } = Vue
@@ -46,10 +48,13 @@
             methods: {
                 startGame() {
                     socket.emit('start_game', { "room_id": this.roomId });
-                    console.log('started game')
+                    console.log('Game started!')
                 },
                 endGame() {
                     socket.emit('end_game', { "room_id": this.roomId });
+                },
+                endRound() {
+                    socket.emit('end_round', { "room_id": this.roomId });
                 },
             },
             mounted() {
@@ -68,8 +73,13 @@
                     vm.game = arg.game
                 });
                 socket.on('game_ended', (arg) => {
+                    console.log(arg)
                     vm.game = null
-                })
+                });
+                socket.on('round_started', (arg) => {
+                    console.log(arg)
+                    vm.game = arg.game
+                });
             },
 
             delimiters: ["${", "}$"],
