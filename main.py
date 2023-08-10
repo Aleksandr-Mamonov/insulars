@@ -87,7 +87,6 @@ def handle_player_enter(data):
     """,
         {"room_id": room_id},
     )
-    print(players)
 
     room = select_one_from_db(
         "SELECT game FROM rooms WHERE uid=:room_id",
@@ -106,10 +105,23 @@ def handle_player_enter(data):
 
 @socketio.on("start_game")
 def handle_game_start(data):
-    game = {"round": 1}
+    room_id = data["room_id"]
+    result = select_all_from_db(
+        "SELECT player_name FROM room_players WHERE room_id=:room_id",
+        {"room_id": room_id},
+    )
+    players = [i["player_name"] for i in result]
+    # game = {"round": 1}
+    game = {
+        "round": 1,
+        "players": tuple(players),
+        "players_order_in_round": players,
+        "players_to_move": players,
+        "active_player": players[0],
+    }
     write_to_db(
         "UPDATE rooms SET game=:game WHERE uid=:room_id",
-        {"game": json.dumps(game), "room_id": data["room_id"]},
+        {"game": json.dumps(game), "room_id": room_id},
     )
     emit(
         "game_started",
@@ -140,6 +152,48 @@ def handle_round_end(data):
         )
         emit(
             "round_started",
+            {"game": game},
+            to=data["room_id"],
+        )
+
+
+@socketio.on("next_move")
+def handle_next_move(data):
+    result = select_one_from_db(
+        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": data["room_id"]}
+    )
+    game = json.loads(result["game"])
+
+    # Remove player who already moved from a list
+    game["players_to_move"].pop(0)
+
+    # i.e. everybody did a move in this round
+    if game["players_to_move"] == []:
+        # PREPARATION FOR NEXT ROUND
+        players_order_in_new_round = game["players_order_in_round"]
+        # Rotate players order for next round
+        players_order_in_new_round.append(players_order_in_new_round.pop(0))
+        game["players_order_in_round"] = players_order_in_new_round
+        game["players_to_move"] = players_order_in_new_round
+        game["active_player"] = game["players_to_move"][0]
+
+        write_to_db(
+            "UPDATE rooms SET game=:game WHERE uid=:room_id",
+            {"game": json.dumps(game), "room_id": data["room_id"]},
+        )
+        # END ROUND
+        handle_round_end(data=data)
+        return
+
+    else:
+        # Change active player to next one
+        game["active_player"] = game["players_to_move"][0]
+        write_to_db(
+            "UPDATE rooms SET game=:game WHERE uid=:room_id",
+            {"game": json.dumps(game), "room_id": data["room_id"]},
+        )
+        emit(
+            "move_started",
             {"game": game},
             to=data["room_id"],
         )

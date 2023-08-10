@@ -22,8 +22,22 @@
     </div>
     <div id="game-layout" v-if="game !== null">
         <p>Round: ${game.round}$</p>
+        <template v-if="playerName == game.active_player">
+            <b>It's your move!</b>
+        </template>
+        <p>Players:</p>
+        <ul>
+            <li v-for="player in game.players">
+                <template v-if="player == game.active_player">
+                    <b>${ player }$ is moving...</b>
+                </template>
+                <template v-else="">
+                    ${ player }$
+                </template>
+            </li>
+        </ul>
         <button @click="endGame">End game</button>
-        <button @click="endRound">End ${game.round}$ round</button>
+        <button v-if="player.player_name == game.active_player" @click="endMove">End move</button>
     </div>
 
 
@@ -53,8 +67,8 @@
                 endGame() {
                     socket.emit('end_game', { "room_id": this.roomId });
                 },
-                endRound() {
-                    socket.emit('end_round', { "room_id": this.roomId });
+                endMove() {
+                    socket.emit('next_move', { "room_id": this.roomId });
                 },
             },
             mounted() {
@@ -77,6 +91,10 @@
                     vm.game = null
                 });
                 socket.on('round_started', (arg) => {
+                    console.log(arg)
+                    vm.game = arg.game
+                });
+                socket.on('move_started', (arg) => {
                     console.log(arg)
                     vm.game = arg.game
                 });
