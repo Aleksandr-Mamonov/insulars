@@ -120,6 +120,7 @@ def handle_game_start(data):
         "players_to_move": players,
         "active_player": players[0],
         "all_players_points": all_players_points,
+        "round_common_account_points": 0,
     }
     write_to_db(
         "UPDATE rooms SET game=:game WHERE uid=:room_id",
@@ -141,6 +142,8 @@ def handle_round_end(data):
     # Update to next round
     game = json.loads(game)
     game["round"] += 1
+    # Reset round common account
+    game["round_common_account_points"] = 0
 
     # That was last round, so game ended. Show game results.
     if game["round"] > GAME_ROUNDS:
@@ -210,8 +213,9 @@ def handle_player_points_change(data):
     all_players_points = game["all_players_points"]
     player_name = data["player_name"]
     all_players_points[player_name] = (
-        all_players_points[player_name] + data["change_points"]
+        all_players_points[player_name] + data["update_player_points"]
     )
+    game["all_players_points"] = all_players_points
     write_to_db(
         "UPDATE rooms SET game=:game WHERE uid=:room_id",
         {"game": json.dumps(game), "room_id": data["room_id"]},
@@ -221,6 +225,32 @@ def handle_player_points_change(data):
         {"game": game},
         to=data["room_id"],
     )
+
+
+@socketio.on("add_points_to_common_account")
+def handle_add_points_to_common_account(data):
+    result = select_one_from_db(
+        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": data["room_id"]}
+    )
+    game = json.loads(result["game"])
+    round_common_account_points = game["round_common_account_points"]
+    round_common_account_points = (
+        round_common_account_points + data["points_to_common_account"]
+    )
+    game["round_common_account_points"] = round_common_account_points
+    write_to_db(
+        "UPDATE rooms SET game=:game WHERE uid=:room_id",
+        {"game": json.dumps(game), "room_id": data["room_id"]},
+    )
+
+    emit(
+        "added_to_common_account",
+        {"game": game},
+        to=data["room_id"],
+    )
+    data["update_player_points"] = -data["points_to_common_account"]
+    handle_player_points_change(data=data)
+    handle_next_move(data=data)
 
 
 @socketio.on("end_game")
