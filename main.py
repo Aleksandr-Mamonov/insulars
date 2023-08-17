@@ -5,7 +5,7 @@ import json
 import sqlite3
 import uuid
 
-from config import MIN_PLAYERS, MAX_PLAYERS, GAME_ROUNDS
+from config import MIN_PLAYERS, MAX_PLAYERS, GAME_ROUNDS, INITIAL_PLAYER_POINTS
 from database import select_one_from_db, select_all_from_db, write_to_db
 
 app = Flask(__name__)
@@ -111,13 +111,15 @@ def handle_game_start(data):
         {"room_id": room_id},
     )
     players = [i["player_name"] for i in result]
-    # game = {"round": 1}
+    all_players_points = {i["player_name"]: INITIAL_PLAYER_POINTS for i in result}
+    # {'a': 10, 'b': 10}
     game = {
         "round": 1,
         "players": tuple(players),
         "players_order_in_round": players,
         "players_to_move": players,
         "active_player": players[0],
+        "all_players_points": all_players_points,
     }
     write_to_db(
         "UPDATE rooms SET game=:game WHERE uid=:room_id",
@@ -197,6 +199,28 @@ def handle_next_move(data):
             {"game": game},
             to=data["room_id"],
         )
+
+
+@socketio.on("change_player_points")
+def handle_player_points_change(data):
+    result = select_one_from_db(
+        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": data["room_id"]}
+    )
+    game = json.loads(result["game"])
+    all_players_points = game["all_players_points"]
+    player_name = data["player_name"]
+    all_players_points[player_name] = (
+        all_players_points[player_name] + data["change_points"]
+    )
+    write_to_db(
+        "UPDATE rooms SET game=:game WHERE uid=:room_id",
+        {"game": json.dumps(game), "room_id": data["room_id"]},
+    )
+    emit(
+        "player_points_changed",
+        {"game": game},
+        to=data["room_id"],
+    )
 
 
 @socketio.on("end_game")

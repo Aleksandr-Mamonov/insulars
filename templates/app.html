@@ -22,6 +22,7 @@
     </div>
     <div id="game-layout" v-if="game !== null">
         <p>Round: ${game.round}$</p>
+        <p>Points: ${game.all_players_points[playerName]}$</p>
         <template v-if="playerName == game.active_player">
             <b>It's your move!</b>
         </template>
@@ -36,8 +37,11 @@
                 </template>
             </li>
         </ul>
+        <button v-if="player.player_name == game.active_player" @click="changePlayerPoints(5); endMove();">+5
+            points</button>
+        <button v-if="player.player_name == game.active_player" @click="changePlayerPoints(-5); endMove();">-5
+            points</button>
         <button @click="endGame">End game</button>
-        <button v-if="player.player_name == game.active_player" @click="endMove">End move</button>
     </div>
 
 
@@ -57,7 +61,8 @@
             computed: {
                 player() {
                     return this.players.filter(p => p.player_name == this.playerName)[0] || {}
-                }
+                },
+
             },
             methods: {
                 startGame() {
@@ -69,6 +74,14 @@
                 },
                 endMove() {
                     socket.emit('next_move', { "room_id": this.roomId });
+                },
+                changePlayerPoints(points) {
+                    socket.emit('change_player_points', {
+                        "room_id": this.roomId,
+                        "player_name": this.playerName,
+                        "change_points": points,
+                    }
+                    )
                 },
             },
             mounted() {
@@ -95,6 +108,10 @@
                     vm.game = arg.game
                 });
                 socket.on('move_started', (arg) => {
+                    console.log(arg)
+                    vm.game = arg.game
+                });
+                socket.on('player_points_changed', (arg) => {
                     console.log(arg)
                     vm.game = arg.game
                 });
