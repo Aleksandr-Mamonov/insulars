@@ -22,6 +22,8 @@
     </div>
     <div id="game-layout" v-if="game !== null">
         <p>Round: ${game.round}$</p>
+        <p>Common account: ${game.round_common_account_points}$ points</p>
+        <p>Player points: ${game.all_players_points[playerName]}$</p>
         <template v-if="playerName == game.active_player">
             <b>It's your move!</b>
         </template>
@@ -36,8 +38,14 @@
                 </template>
             </li>
         </ul>
+        <button v-if="player.player_name == game.active_player" @click="changePlayerPoints(5); endMove();">+5
+            points</button>
+        <button v-if="player.player_name == game.active_player" @click="changePlayerPoints(-5); endMove();">-5
+            points</button>
+        <button v-if="player.player_name == game.active_player" @click="addPointsToCommonAccount(5);">
+            Add 5 points to common account
+        </button>
         <button @click="endGame">End game</button>
-        <button v-if="player.player_name == game.active_player" @click="endMove">End move</button>
     </div>
 
 
@@ -57,7 +65,8 @@
             computed: {
                 player() {
                     return this.players.filter(p => p.player_name == this.playerName)[0] || {}
-                }
+                },
+
             },
             methods: {
                 startGame() {
@@ -70,6 +79,23 @@
                 endMove() {
                     socket.emit('next_move', { "room_id": this.roomId });
                 },
+                changePlayerPoints(points) {
+                    socket.emit('change_player_points', {
+                        "room_id": this.roomId,
+                        "player_name": this.playerName,
+                        "update_player_points": points,
+                    }
+                    )
+                },
+                addPointsToCommonAccount(points) {
+                    socket.emit('add_points_to_common_account', {
+                        "room_id": this.roomId,
+                        "player_name": this.playerName,
+                        "points_to_common_account": points,
+                    }
+                    )
+                },
+
             },
             mounted() {
                 let vm = this;
@@ -95,6 +121,14 @@
                     vm.game = arg.game
                 });
                 socket.on('move_started', (arg) => {
+                    console.log(arg)
+                    vm.game = arg.game
+                });
+                socket.on('player_points_changed', (arg) => {
+                    console.log(arg)
+                    vm.game = arg.game
+                });
+                socket.on('added_to_common_account', (arg) => {
                     console.log(arg)
                     vm.game = arg.game
                 });
