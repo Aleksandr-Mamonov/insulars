@@ -38,13 +38,11 @@
                 </template>
             </li>
         </ul>
-        <button v-if="player.player_name == game.active_player" @click="changePlayerPoints(5); endMove();">+5
-            points</button>
-        <button v-if="player.player_name == game.active_player" @click="changePlayerPoints(-5); endMove();">-5
-            points</button>
-        <button v-if="player.player_name == game.active_player" @click="addPointsToCommonAccount(5);">
-            Add 5 points to common account
-        </button>
+        <template v-if="player.player_name == game.active_player">
+            <button @click="changePlayerPoints(5); endMove();">+5 points</button>
+            <button @click="changePlayerPoints(-5); endMove();">-5 points</button>
+            <button @click="addPointsToCommonAccount(5);">Add 5 points to common account</button>
+        </template>
         <button @click="endGame">End game</button>
     </div>
 
@@ -95,6 +93,13 @@
                     }
                     )
                 },
+                selectCards(card_ids) {
+                    socket.emit('select_cards_from_table', {
+                        "room_id": this.roomId,
+                        "selected_cards_ids": card_ids, // card_ids must be an array of card ids selected by leader
+                    }
+                    )
+                },
 
             },
             mounted() {
@@ -129,6 +134,10 @@
                     vm.game = arg.game
                 });
                 socket.on('added_to_common_account', (arg) => {
+                    console.log(arg)
+                    vm.game = arg.game
+                });
+                socket.on('cards_for_round_selected', (arg) => {
                     console.log(arg)
                     vm.game = arg.game
                 });

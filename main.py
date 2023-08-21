@@ -5,7 +5,14 @@ import json
 import sqlite3
 import uuid
 
-from config import MIN_PLAYERS, MAX_PLAYERS, GAME_ROUNDS, INITIAL_PLAYER_POINTS
+from config import (
+    MIN_PLAYERS,
+    MAX_PLAYERS,
+    GAME_ROUNDS,
+    INITIAL_PLAYER_POINTS,
+    CARDS_ON_TABLE_IN_ROUND,
+    CARDS_IN_GAME,
+)
 from database import select_one_from_db, select_all_from_db, write_to_db
 
 app = Flask(__name__)
@@ -38,6 +45,55 @@ def _join_player_to_room(player_name, room_id):
         {"room_id": room_id, "player_name": player_name},
     )
     session["player_name"] = player_name
+
+
+def build_deck(game_id: str):
+    # TODO: How we build a deck? What rules?
+    result = select_all_from_db("SELECT name FROM cards", params={})
+    # [{'name': 'Bridge'}, {'name': 'Hospital'}, {'name': 'School'}, {'name': 'Station'}]
+    all_cards = [i["name"] for i in result]
+    multiple = CARDS_IN_GAME // len(all_cards) + 1
+
+    for card_name in all_cards * multiple:
+        write_to_db(
+            "INSERT INTO game_deck (game_id, card_name) VALUES (:game_id, :card_name)",
+            {"game_id": game_id, "card_name": card_name},
+        )
+
+
+def draw_random_card_from_deck(game_id: str) -> dict:
+    card = select_one_from_db(
+        """
+        SELECT 
+            gd.card_id,
+            c.name,
+            c.points_to_succeed, 
+            c.min_team, 
+            c.max_team, 
+            c.on_success, 
+            c.on_failure 
+        FROM game_deck AS gd 
+        INNER JOIN cards AS c ON c.name=gd.card_name
+        WHERE gd.game_id=:game_id 
+        AND gd.available=TRUE 
+        ORDER BY RANDOM() 
+        LIMIT 1
+        """,
+        {"game_id": game_id},
+    )
+
+    try:
+        card_id = card["card_id"]
+    except TypeError as e:
+        print("The deck is empty.")
+        # TODO: What to do if deck is empty? Rebuild again?
+        raise
+
+    write_to_db(
+        "UPDATE game_deck SET available=FALSE WHERE card_id=:card_id AND game_id=:game_id",
+        {"card_id": card_id, "game_id": game_id},
+    )
+    return card
 
 
 @app.route("/")
@@ -113,14 +169,23 @@ def handle_game_start(data):
     players = [i["player_name"] for i in result]
     all_players_points = {i["player_name"]: INITIAL_PLAYER_POINTS for i in result}
     # {'a': 10, 'b': 10}
+    game_id = str(uuid.uuid4())
+    build_deck(game_id)
+    cards_on_table = [
+        draw_random_card_from_deck(game_id) for _ in range(CARDS_ON_TABLE_IN_ROUND)
+    ]
     game = {
+        "game_id": game_id,
         "round": 1,
         "players": tuple(players),
         "players_order_in_round": players,
         "players_to_move": players,
         "active_player": players[0],
+        "leader": players[0],
         "all_players_points": all_players_points,
         "round_common_account_points": 0,
+        "cards_on_table": cards_on_table,
+        "cards_selected_by_leader": [],
     }
     write_to_db(
         "UPDATE rooms SET game=:game WHERE uid=:room_id",
@@ -142,8 +207,6 @@ def handle_round_end(data):
     # Update to next round
     game = json.loads(game)
     game["round"] += 1
-    # Reset round common account
-    game["round_common_account_points"] = 0
 
     # That was last round, so game ended. Show game results.
     if game["round"] > GAME_ROUNDS:
@@ -151,6 +214,14 @@ def handle_round_end(data):
         data["game_results"] = "Results of a game..."
         handle_game_end(data=data)
     else:
+        # Reset round common account
+        game["round_common_account_points"] = 0
+        new_cards_on_table = [
+            draw_random_card_from_deck(game["game_id"])
+            for _ in range(CARDS_ON_TABLE_IN_ROUND)
+        ]
+        game["cards_on_table"] = new_cards_on_table
+        game["cards_selected_by_leader"] = []
         write_to_db(
             "UPDATE rooms SET game=:game WHERE uid=:room_id",
             {"game": json.dumps(game), "room_id": data["room_id"]},
@@ -181,7 +252,7 @@ def handle_next_move(data):
         game["players_order_in_round"] = players_order_in_new_round
         game["players_to_move"] = players_order_in_new_round
         game["active_player"] = game["players_to_move"][0]
-
+        game["leader"] = game["players_to_move"][0]
         write_to_db(
             "UPDATE rooms SET game=:game WHERE uid=:room_id",
             {"game": json.dumps(game), "room_id": data["room_id"]},
@@ -253,6 +324,32 @@ def handle_add_points_to_common_account(data):
     handle_next_move(data=data)
 
 
+@socketio.on("select_cards_from_table")
+def handle_select_cards_from_table(data):
+    """Card(s) can be selected only by leader in current round."""
+    result = select_one_from_db(
+        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": data["room_id"]}
+    )
+    game = json.loads(result["game"])
+
+    for card in game["cards_on_table"]:
+        card_id = card["card_id"]
+        for selected_card_id in data["selected_cards_ids"]:
+            if selected_card_id == card_id:
+                game["cards_selected_by_leader"].append(card)
+                break
+    game["cards_on_table"].clear()
+    write_to_db(
+        "UPDATE rooms SET game=:game WHERE uid=:room_id",
+        {"game": json.dumps(game), "room_id": data["room_id"]},
+    )
+    emit(
+        "cards_for_round_selected",
+        {"game": game},
+        to=data["room_id"],
+    )
+
+
 @socketio.on("end_game")
 def handle_game_end(data):
     write_to_db(
@@ -266,4 +363,6 @@ def handle_game_end(data):
 
 
 if __name__ == "__main__":
-    socketio.run(app)
+    # socketio.run(app)
+    # build_deck("a")
+    draw_random_card_from_deck("a")
