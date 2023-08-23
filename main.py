@@ -186,6 +186,7 @@ def handle_game_start(data):
         "round_common_account_points": 0,
         "cards_on_table": cards_on_table,
         "cards_selected_by_leader": [],
+        "team_selected_by_leader": [],
     }
     write_to_db(
         "UPDATE rooms SET game=:game WHERE uid=:room_id",
@@ -206,6 +207,20 @@ def handle_round_end(data):
     game = result["game"]
     # Update to next round
     game = json.loads(game)
+    # Check whether team succeeded or failed in ended round
+    points_to_succeed = sum(
+        [card["points_to_succeed"] for card in game["cards_selected_by_leader"]]
+    )
+    points_collected_by_team = game["round_common_account_points"]
+    if points_collected_by_team >= points_to_succeed:
+        # TODO: Apply condition(s) on success from all selected card(s)
+        rewards = [card["on_success"] for card in game["cards_selected_by_leader"]]
+        print(f'Team succeeded in {game["round"]} round! Rewards: {rewards}')
+    else:
+        # TODO: Apply condition(s) on failure from all selected card(s)
+        punishment = [card["on_failure"] for card in game["cards_selected_by_leader"]]
+        print(f'Team failed in {game["round"]} round! Punishment: {punishment}')
+
     game["round"] += 1
 
     # That was last round, so game ended. Show game results.
@@ -222,6 +237,7 @@ def handle_round_end(data):
         ]
         game["cards_on_table"] = new_cards_on_table
         game["cards_selected_by_leader"] = []
+        game["team_selected_by_leader"] = []
         write_to_db(
             "UPDATE rooms SET game=:game WHERE uid=:room_id",
             {"game": json.dumps(game), "room_id": data["room_id"]},
@@ -345,6 +361,50 @@ def handle_select_cards_from_table(data):
     )
     emit(
         "cards_for_round_selected",
+        {"game": game},
+        to=data["room_id"],
+    )
+
+
+@socketio.on("select_team_for_round")
+def handle_select_team_for_round(data):
+    """Team is selected by a leader.
+    Team should include
+        from min players of min(min_players from all selected cards)
+        to max players of max(max_players from all selected cards).
+    Data = {
+    "game_id": game_id,
+    "selected_players": [player_name1, player_name2 ...],
+    }
+    """
+    result = select_one_from_db(
+        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": data["room_id"]}
+    )
+    game = json.loads(result["game"])
+    # Check whether card(s) for a given round were selected already or not
+    if game["cards_selected_by_leader"] == []:
+        # TODO
+        raise
+    # How many min and max players should be in a team
+    min_players_in_team = min(
+        [card["min_team"] for card in game["cards_selected_by_leader"]]
+    )
+    max_players_in_team = max(
+        [card["max_team"] for card in game["cards_selected_by_leader"]]
+    )
+    # Check whether leader selected appropriate number of players
+    if min_players_in_team <= len(data["selected_players"]) <= max_players_in_team:
+        game["team_selected_by_leader"] = data["selected_players"]
+    else:
+        # TODO
+        raise
+
+    write_to_db(
+        "UPDATE rooms SET game=:game WHERE uid=:room_id",
+        {"game": json.dumps(game), "room_id": data["room_id"]},
+    )
+    emit(
+        "team_for_round_selected",
         {"game": game},
         to=data["room_id"],
     )
