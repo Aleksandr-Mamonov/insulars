@@ -24,10 +24,10 @@ def init_db():
     )
     cur.execute(
         """INSERT INTO cards VALUES
-        ('School', 35, 3, 4, '{"condition_on_success": "some_condition"}', '{"condition_on_failure": "some_condition"}'),
-        ('Station', 50, 4, 5, '{"condition_on_success": "some_condition"}', '{"condition_on_failure": "some_condition"}'),
-        ('Bridge', 30, 2, 4, '{"condition_on_success": "some_condition"}', '{"condition_on_failure": "some_condition"}'),
-        ('Hospital', 40, 3, 5, '{"condition_on_success": "some_condition"}', '{"condition_on_failure": "some_condition"}')
+        ('School', 35, 1, 2, '{"condition_on_success": "some_condition"}', '{"condition_on_failure": "some_condition"}'),
+        ('Station', 50, 1, 2, '{"condition_on_success": "some_condition"}', '{"condition_on_failure": "some_condition"}'),
+        ('Bridge', 30, 2, 2, '{"condition_on_success": "some_condition"}', '{"condition_on_failure": "some_condition"}'),
+        ('Hospital', 40, 1, 2, '{"condition_on_success": "some_condition"}', '{"condition_on_failure": "some_condition"}')
         """
     )
     con.commit()

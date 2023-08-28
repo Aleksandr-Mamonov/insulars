@@ -5,23 +5,97 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"
         integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA=="
         crossorigin="anonymous"></script>
-</head>
 
+    <style>
+        .card {
+            min-width: 150px;
+            width: 150px;
+            min-height: 200px;
+            height: 200px;
+            border: 2px #bbb solid;
+            display: inline-block;
+            margin-left: 5px;
+            text-align: center;
+        }
+        .card-active {
+            min-width: 300px;
+            width: 300px;
+            min-height: 400px;
+            height: 400px;
+            border: 2px #000 solid;
+            display: inline-block;
+            margin-left: 5px;
+            text-align: center;
+        }
+
+    </style>
+</head>
+<!--todo - leader can not select himself for project team-->
 <body id="app">
 
     <p><a href="/">Main</a></p>
+    <h2>You are ${playerName}$</h2>
+
     <div id="lobby-layout" v-if="game === null">
         <a href="/?room_id={{room_id}}">Invite another player</a>
-        <p>${playerName}$</p>
         <h1>Room</h1>
         <ul>
             <li v-for="p in players">${p.player_name}$</li>
         </ul>
         <button :disabled="players.length < config.MIN_PLAYERS || players.length > config.MAX_PLAYERS"
-            v-if="player.is_owner" @click="startGame">Start game</button>
+                v-if="player.is_owner"
+                @click="startGame">Start game</button>
     </div>
     <div id="game-layout" v-if="game !== null">
-        <p>Round: ${game.round}$</p>
+        <p>Round: ${game.round}$ (${ roundStage}$), ${ game.leader }$ is leader, ${ game.active_player }$ is active player</p>
+
+        <details>
+            <summary>Game</summary>
+            <pre>${ game }$</pre>
+        </details>
+
+        <div v-if="game.cards_on_table && game.cards_on_table.length > 0">
+            <div v-if="isLeader()">
+                <div>
+                    <div class="card"
+                         v-for="card in game.cards_on_table"
+                         :key="card_id"
+                         @click="toggleCard(card)">
+                        <p>${ card.name }$</p>
+                        <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
+                        <p>&#127991; ${ card.points_to_succeed }$</p>
+                        <p v-if="isCardSelected(card)">выбрана</p>
+                    </div>
+                </div>
+                <button type="button" @click="submitCardsSelection()" :disabled="!selectedCards.length">Выбрать</button>
+            </div>
+            <div v-if="!isLeader()">
+                <div>
+                    <div class="card"
+                         v-for="card in game.cards_on_table"
+                         :key="card_id">
+                        <p>${ card.name }$</p>
+                        <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
+                        <p>&#127991; ${ card.points_to_succeed }$</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="roundStage > 0">
+            <div class="card"
+                 v-for="card in game.cards_selected_by_leader"
+                 :key="card_id">
+                <p>${ card.name }$</p>
+                <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
+                <p>&#127991; ${ card.points_to_succeed }$</p>
+            </div>
+
+            <div v-if="roundStage === 1">
+                <p>Leader is selecting project team</p>
+            </div>
+        </div>
+
         <p>Common account: ${game.round_common_account_points}$ points</p>
         <p>Player points: ${game.all_players_points[playerName]}$</p>
         <template v-if="playerName == game.active_player">
@@ -29,23 +103,37 @@
         </template>
         <p>Players:</p>
         <ul>
-            <li v-for="player in game.players">
-                <template v-if="player == game.active_player">
-                    <b>${ player }$ is moving...</b>
-                </template>
-                <template v-else="">
-                    ${ player }$
-                </template>
+            <li v-for="playerName in game.players">
+                <label>
+                    <input type="checkbox"
+                           :disabled="selectedProjectTeamMembers.length >= projectTeamMaxMembers && !selectedProjectTeamMembers.includes(playerName) "
+                           v-model="projectTeamMembersSelection[playerName]"
+                           v-if="isLeader() && roundStage === 1">
+                    ${ playerName }$ <span v-if="playerName == game.leader">&#128081;</span>
+                </label>
             </li>
         </ul>
-        <template v-if="player.player_name == game.active_player">
-            <button @click="changePlayerPoints(5); endMove();">+5 points</button>
-            <button @click="changePlayerPoints(-5); endMove();">-5 points</button>
-            <button @click="addPointsToCommonAccount(5);">Add 5 points to common account</button>
-        </template>
-        <button @click="endGame">End game</button>
-    </div>
+        <div v-if="isLeader() && roundStage === 1">
+            <button type="button"
+                    @click="submitProjectTeamSelection()">
+                Подтвердить</button>
+        </div>
 
+        <div v-if="roundStage === 2 && isPlayerProjectParticipant() && isActivePlayer()">
+            <label>Choose your project participation: ${ playerProjectBid }$</label>
+            <input type="range" v-model="playerProjectBid" min="0" :max="game.all_players_points[playerName]"/>
+
+            <button type="button" @click="makeProjectDeposit(playerProjectBid)">Submit participation</button>
+        </div>
+
+        <div v-if="roundStage === 2 && (!isPlayerProjectParticipant() || !isActivePlayer())">
+            <p>Wait until team developing project...</p>
+        </div>
+
+        <div v-if="roundResults" style="position: absolute; z-index: 100; min-width: 300; min-height: 300; border: yellow 1px solid">
+            Round result is ${ roundResults }$
+        </div>
+    </div>
 
     <script type="text/javascript" charset="utf-8">
         const { createApp, ref } = Vue
@@ -53,54 +141,98 @@
         createApp({
             setup() {
                 return {
+                    selectedCards: ref([]),
+                    playerProjectBid: ref(0),
+                    projectTeamMembersSelection: ref({}),
                     playerName: '{{ player_name }}',
                     roomId: '{{ room_id }}',
                     players: ref([]),
                     config: {},
                     game: ref(null),
+                    roundResults: ref(null)
                 }
             },
             computed: {
                 player() {
                     return this.players.filter(p => p.player_name == this.playerName)[0] || {}
                 },
+                roundStage() {
+                    // project developing
+                    if (this.game.team_selected_by_leader && this.game.team_selected_by_leader.length > 0) {
+                        return 2
+                    }
 
+                    // team selection
+                    if (this.game.cards_selected_by_leader && this.game.cards_selected_by_leader.length > 0) {
+                        return 1
+                    }
+
+                    // card selection
+                    return 0
+                },
+                projectTeamMaxMembers() {
+                    return Math.max.apply(null, this.game.cards_selected_by_leader.map(c => c.max_team))
+                },
+                selectedProjectTeamMembers() {
+                    let selectedPlayers = [];
+                    for (player in this.projectTeamMembersSelection) {
+                        if (this.projectTeamMembersSelection[player] === true) {
+                            selectedPlayers.push(player)
+                        }
+                    }
+
+                    return selectedPlayers;
+                }
             },
             methods: {
+                isPlayerProjectParticipant() {
+                    return this.roundStage === 2 && this.game.team_selected_by_leader.includes(this.playerName);
+                },
+                isActivePlayer() {
+                    return this.playerName === this.game.active_player
+                },
+                isLeader() {
+                    return this.playerName == this.game.leader;
+                },
+                isCardSelected(card) {
+                    return this.selectedCards.map(c => c.card_id).includes(card.card_id);
+                },
+                toggleCard(card) {
+                    if (!this.isCardSelected(card)) {
+                        this.selectedCards.push(card);
+                    } else {
+                        this.selectedCards = this.selectedCards.filter(c => c.card_id !== card.card_id);
+                    }
+                },
                 startGame() {
                     socket.emit('start_game', { "room_id": this.roomId });
                     console.log('Game started!')
                 },
-                endGame() {
-                    socket.emit('end_game', { "room_id": this.roomId });
-                },
-                endMove() {
-                    socket.emit('next_move', { "room_id": this.roomId });
-                },
-                changePlayerPoints(points) {
-                    socket.emit('change_player_points', {
+                makeProjectDeposit(points) {
+                    let payload =  {
                         "room_id": this.roomId,
                         "player_name": this.playerName,
-                        "update_player_points": points,
+                        "points": points
                     }
-                    )
+                    socket.emit('make_project_deposit', payload)
+                    this.playerProjectBid = 0;
                 },
-                addPointsToCommonAccount(points) {
-                    socket.emit('add_points_to_common_account', {
+                submitCardsSelection() {
+                    let payload = {
                         "room_id": this.roomId,
-                        "player_name": this.playerName,
-                        "points_to_common_account": points,
+                        "selected_cards_ids": this.selectedCards.map(c => c.card_id),
                     }
-                    )
+                    socket.emit('select_cards_from_table', payload)
+                    this.selectedCards = [];
                 },
-                selectCards(card_ids) {
-                    socket.emit('select_cards_from_table', {
+                submitProjectTeamSelection() {
+                    let payload = {
                         "room_id": this.roomId,
-                        "selected_cards_ids": card_ids, // card_ids must be an array of card ids selected by leader
+                        "selected_players": this.selectedProjectTeamMembers,
                     }
-                    )
-                },
-
+                    socket.emit('select_team_for_round', payload)
+                    this.projectTeamMembersSelection = {};
+                }
             },
             mounted() {
                 let vm = this;
@@ -138,9 +270,21 @@
                     vm.game = arg.game
                 });
                 socket.on('cards_for_round_selected', (arg) => {
-                    console.log(arg)
                     vm.game = arg.game
                 });
+                socket.on('team_for_round_selected', (arg) => {
+                    console.log(arg)
+                    vm.game = arg.game
+                })
+                socket.on('round_result', (arg) => {
+                    console.log(arg)
+                    vm.roundResults = arg.is_success
+                    setTimeout(() => {
+                        Vue.nextTicks(() => {
+                            vm.roundResults = null
+                        })
+                    }, 1000)
+                })
             },
 
             delimiters: ["${", "}$"],
