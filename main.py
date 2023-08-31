@@ -199,145 +199,28 @@ def handle_game_start(data):
     )
 
 
-@socketio.on("end_round")
-def handle_round_end(data):
-    result = select_one_from_db(
-        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": data["room_id"]}
-    )
-    game = result["game"]
-    # Update to next round
-    game = json.loads(game)
-    # Check whether team succeeded or failed in ended round
-    points_to_succeed = sum(
-        [card["points_to_succeed"] for card in game["cards_selected_by_leader"]]
-    )
-    points_collected_by_team = game["round_common_account_points"]
-    if points_collected_by_team >= points_to_succeed:
-        # TODO: Apply condition(s) on success from all selected card(s)
-        rewards = [card["on_success"] for card in game["cards_selected_by_leader"]]
-        print(f'Team succeeded in {game["round"]} round! Rewards: {rewards}')
-    else:
-        # TODO: Apply condition(s) on failure from all selected card(s)
-        punishment = [card["on_failure"] for card in game["cards_selected_by_leader"]]
-        print(f'Team failed in {game["round"]} round! Punishment: {punishment}')
-
-    game["round"] += 1
-
-    # That was last round, so game ended. Show game results.
-    if game["round"] > GAME_ROUNDS:
-        # TODO
-        data["game_results"] = "Results of a game..."
-        handle_game_end(data=data)
-    else:
-        # Reset round common account
-        game["round_common_account_points"] = 0
-        new_cards_on_table = [
-            draw_random_card_from_deck(game["game_id"])
-            for _ in range(CARDS_ON_TABLE_IN_ROUND)
-        ]
-        game["cards_on_table"] = new_cards_on_table
-        game["cards_selected_by_leader"] = []
-        game["team_selected_by_leader"] = []
-        write_to_db(
-            "UPDATE rooms SET game=:game WHERE uid=:room_id",
-            {"game": json.dumps(game), "room_id": data["room_id"]},
-        )
-        emit(
-            "round_started",
-            {"game": game},
-            to=data["room_id"],
-        )
-
-
-@socketio.on("next_move")
-def handle_next_move(data):
-    result = select_one_from_db(
-        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": data["room_id"]}
-    )
-    game = json.loads(result["game"])
-
-    # Remove player who already moved from a list
-    game["players_to_move"].pop(0)
-
-    # i.e. everybody did a move in this round
-    if game["players_to_move"] == []:
-        # PREPARATION FOR NEXT ROUND
-        players_order_in_new_round = game["players_order_in_round"]
-        # Rotate players order for next round
-        players_order_in_new_round.append(players_order_in_new_round.pop(0))
-        game["players_order_in_round"] = players_order_in_new_round
-        game["players_to_move"] = players_order_in_new_round
-        game["active_player"] = game["players_to_move"][0]
-        game["leader"] = game["players_to_move"][0]
-        write_to_db(
-            "UPDATE rooms SET game=:game WHERE uid=:room_id",
-            {"game": json.dumps(game), "room_id": data["room_id"]},
-        )
-        # END ROUND
-        handle_round_end(data=data)
-        return
-
-    else:
-        # Change active player to next one
-        game["active_player"] = game["players_to_move"][0]
-        write_to_db(
-            "UPDATE rooms SET game=:game WHERE uid=:room_id",
-            {"game": json.dumps(game), "room_id": data["room_id"]},
-        )
-        emit(
-            "move_started",
-            {"game": game},
-            to=data["room_id"],
-        )
-
-
-@socketio.on("change_player_points")
-def handle_player_points_change(data):
-    result = select_one_from_db(
-        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": data["room_id"]}
-    )
-    game = json.loads(result["game"])
+def change_player_points(room_id, player_name, points: int):
+    game = get_room_game(room_id)
     all_players_points = game["all_players_points"]
-    player_name = data["player_name"]
-    all_players_points[player_name] = (
-        all_players_points[player_name] + data["update_player_points"]
-    )
+
+    all_players_points[player_name] = (all_players_points[player_name] + points)
     game["all_players_points"] = all_players_points
-    write_to_db(
-        "UPDATE rooms SET game=:game WHERE uid=:room_id",
-        {"game": json.dumps(game), "room_id": data["room_id"]},
-    )
-    emit(
-        "player_points_changed",
-        {"game": game},
-        to=data["room_id"],
-    )
+    store_room_game(room_id, game)
+
+    return game
 
 
-@socketio.on("add_points_to_common_account")
-def handle_add_points_to_common_account(data):
-    result = select_one_from_db(
-        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": data["room_id"]}
-    )
-    game = json.loads(result["game"])
+def change_project_points(room_id, points_delta: int):
+    game = get_room_game(room_id)
+
     round_common_account_points = game["round_common_account_points"]
-    round_common_account_points = (
-        round_common_account_points + data["points_to_common_account"]
-    )
-    game["round_common_account_points"] = round_common_account_points
-    write_to_db(
-        "UPDATE rooms SET game=:game WHERE uid=:room_id",
-        {"game": json.dumps(game), "room_id": data["room_id"]},
-    )
+    round_common_account_points = (round_common_account_points + points_delta)
 
-    emit(
-        "added_to_common_account",
-        {"game": game},
-        to=data["room_id"],
-    )
-    data["update_player_points"] = -data["points_to_common_account"]
-    handle_player_points_change(data=data)
-    handle_next_move(data=data)
+    game["round_common_account_points"] = round_common_account_points
+
+    store_room_game(room_id, game)
+
+    return game
 
 
 @socketio.on("select_cards_from_table")
@@ -354,16 +237,119 @@ def handle_select_cards_from_table(data):
             if selected_card_id == card_id:
                 game["cards_selected_by_leader"].append(card)
                 break
+
     game["cards_on_table"].clear()
     write_to_db(
         "UPDATE rooms SET game=:game WHERE uid=:room_id",
         {"game": json.dumps(game), "room_id": data["room_id"]},
     )
-    emit(
-        "cards_for_round_selected",
-        {"game": game},
-        to=data["room_id"],
+    emit("cards_for_round_selected", {"game": game}, to=data["room_id"])
+
+
+def get_room_game(room_id):
+    result = select_one_from_db("SELECT game FROM rooms WHERE uid=:room_id", {"room_id": room_id})
+
+    return json.loads(result["game"])
+
+
+def store_room_game(room_id, game):
+    write_to_db("UPDATE rooms SET game=:game WHERE uid=:room_id", {"game": json.dumps(game), "room_id": room_id})
+
+
+def move_to_next_player(room_id):
+    """ Change active player to next one"""
+
+    game = get_room_game(room_id)
+
+    game["active_player"] = game["players_to_move"][0]
+    game["players_to_move"].pop(0)
+
+    store_room_game(room_id, game)
+
+    return game
+
+
+def apply_project_result(game):
+    # Check whether team succeeded or failed in ended round
+    points_to_succeed = sum(
+        [card["points_to_succeed"] for card in game["cards_selected_by_leader"]]
     )
+    points_collected_by_team = game["round_common_account_points"]
+
+    is_success = points_collected_by_team >= points_to_succeed
+    if is_success:
+        # TODO: Apply condition(s) on success from all selected card(s)
+        rewards = [card["on_success"] for card in game["cards_selected_by_leader"]]
+        print(f'Team succeeded in {game["round"]} round! Rewards: {rewards}')
+    else:
+        # TODO: Apply condition(s) on failure from all selected card(s)
+        punishment = [card["on_failure"] for card in game["cards_selected_by_leader"]]
+        print(f'Team failed in {game["round"]} round! Punishment: {punishment}')
+
+    return is_success
+
+
+def start_next_round(room_id, game):
+    game["round"] += 1
+    # That was last round, so game ended. Show game results.
+    if game["round"] > GAME_ROUNDS:
+        return None
+    else:
+        players_order_in_new_round = game["players_order_in_round"]
+        # Rotate players order for next round
+        players_order_in_new_round.append(players_order_in_new_round.pop(0))
+
+        # Reset round common account
+        game["round_common_account_points"] = 0
+        new_cards_on_table = [
+            draw_random_card_from_deck(game["game_id"])
+            for _ in range(CARDS_ON_TABLE_IN_ROUND)
+        ]
+        game["cards_on_table"] = new_cards_on_table
+        game["cards_selected_by_leader"] = []
+        game["team_selected_by_leader"] = []
+
+        game["players_order_in_round"] = players_order_in_new_round
+        game["players_to_move"] = players_order_in_new_round
+        game["active_player"] = players_order_in_new_round[0]
+        game["leader"] = players_order_in_new_round[0]
+
+        store_room_game(room_id, game)
+
+        return game
+
+
+@socketio.on('make_project_deposit')
+def handle_make_project_deposit(data):
+    """Player make a points deposit during project development"""
+
+    room_id = data["room_id"]
+    points = int(data['points'])
+
+    change_player_points(room_id, data['player_name'], points)
+    game = change_project_points(room_id, points)
+
+    emit("project_deposited", {"game": game}, to=data["room_id"])
+    emit("player_points_changed", {"game": game}, to=data["room_id"])
+
+    # Remove player who already moved from a list
+    game["players_to_move"].pop(0)
+    store_room_game(room_id, game)
+
+    has_player_to_move_next = len(game["players_to_move"]) > 0
+
+    if has_player_to_move_next:
+        game = move_to_next_player(room_id)
+        emit("move_started", {"game": game}, to=data["room_id"])
+    else:
+        is_success = apply_project_result(game)
+        emit("round_result", {"is_success": is_success}, to=data["room_id"])
+        game = start_next_round(room_id, game)
+        if game is None:
+            write_to_db("UPDATE rooms SET game=NULL WHERE uid=:room_id", {"room_id": data["room_id"]})
+            emit("game_ended", {"winner": 1}, to=data["rom_id"])
+        else:
+            emit("round_started", {"game": game}, to=data["room_id"])
 
 
 @socketio.on("select_team_for_round")
@@ -377,9 +363,7 @@ def handle_select_team_for_round(data):
     "selected_players": [player_name1, player_name2 ...],
     }
     """
-    result = select_one_from_db(
-        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": data["room_id"]}
-    )
+    result = select_one_from_db("SELECT game FROM rooms WHERE uid=:room_id", {"room_id": data["room_id"]})
     game = json.loads(result["game"])
     # Check whether card(s) for a given round were selected already or not
     if game["cards_selected_by_leader"] == []:
@@ -395,31 +379,15 @@ def handle_select_team_for_round(data):
     # Check whether leader selected appropriate number of players
     if min_players_in_team <= len(data["selected_players"]) <= max_players_in_team:
         game["team_selected_by_leader"] = data["selected_players"]
+        game['players_to_move'] = game["team_selected_by_leader"]
     else:
         # TODO
         raise
 
-    write_to_db(
-        "UPDATE rooms SET game=:game WHERE uid=:room_id",
-        {"game": json.dumps(game), "room_id": data["room_id"]},
-    )
-    emit(
-        "team_for_round_selected",
-        {"game": game},
-        to=data["room_id"],
-    )
+    store_room_game(data["room_id"], game)
+    game = move_to_next_player(data["room_id"])
 
-
-@socketio.on("end_game")
-def handle_game_end(data):
-    write_to_db(
-        "UPDATE rooms SET game=NULL WHERE uid=:room_id", {"room_id": data["room_id"]}
-    )
-    emit(
-        "game_ended",
-        {"msg": "Game ended!", "Game results": data.get("game_results")},
-        to=data["room_id"],
-    )
+    emit("team_for_round_selected", {"game": game}, to=data["room_id"])
 
 
 if __name__ == "__main__":
