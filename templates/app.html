@@ -17,6 +17,7 @@
             margin-left: 5px;
             text-align: center;
         }
+
         .card-active {
             min-width: 300px;
             width: 300px;
@@ -27,10 +28,10 @@
             margin-left: 5px;
             text-align: center;
         }
-
     </style>
 </head>
 <!--todo - leader can not select himself for project team-->
+
 <body id="app">
 
     <p><a href="/">Main</a></p>
@@ -43,11 +44,11 @@
             <li v-for="p in players">${p.player_name}$</li>
         </ul>
         <button :disabled="players.length < config.MIN_PLAYERS || players.length > config.MAX_PLAYERS"
-                v-if="player.is_owner"
-                @click="startGame">Start game</button>
+            v-if="player.is_owner" @click="startGame">Start game</button>
     </div>
     <div id="game-layout" v-if="game !== null">
-        <p>Round: ${game.round}$ (${ roundStage}$), ${ game.leader }$ is leader, ${ game.active_player }$ is active player</p>
+        <p>Round: ${game.round}$ (${ roundStage}$), ${ game.leader }$ is leader, ${ game.active_player }$ is active
+            player</p>
 
         <details>
             <summary>Game</summary>
@@ -57,10 +58,7 @@
         <div v-if="game.cards_on_table && game.cards_on_table.length > 0">
             <div v-if="isLeader()">
                 <div>
-                    <div class="card"
-                         v-for="card in game.cards_on_table"
-                         :key="card_id"
-                         @click="toggleCard(card)">
+                    <div class="card" v-for="card in game.cards_on_table" :key="card_id" @click="toggleCard(card)">
                         <p>${ card.name }$</p>
                         <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
                         <p>&#127991; ${ card.points_to_succeed }$</p>
@@ -71,9 +69,7 @@
             </div>
             <div v-if="!isLeader()">
                 <div>
-                    <div class="card"
-                         v-for="card in game.cards_on_table"
-                         :key="card_id">
+                    <div class="card" v-for="card in game.cards_on_table" :key="card_id">
                         <p>${ card.name }$</p>
                         <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
                         <p>&#127991; ${ card.points_to_succeed }$</p>
@@ -83,9 +79,7 @@
         </div>
 
         <div v-if="roundStage > 0">
-            <div class="card"
-                 v-for="card in game.cards_selected_by_leader"
-                 :key="card_id">
+            <div class="card" v-for="card in game.cards_selected_by_leader" :key="card_id">
                 <p>${ card.name }$</p>
                 <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
                 <p>&#127991; ${ card.points_to_succeed }$</p>
@@ -106,22 +100,20 @@
             <li v-for="playerName in game.players">
                 <label>
                     <input type="checkbox"
-                           :disabled="selectedProjectTeamMembers.length >= projectTeamMaxMembers && !selectedProjectTeamMembers.includes(playerName) "
-                           v-model="projectTeamMembersSelection[playerName]"
-                           v-if="isLeader() && roundStage === 1">
+                        :disabled="(selectedProjectTeamMembers.length >= projectTeamMaxMembers && !selectedProjectTeamMembers.includes(playerName)) || game.leader === playerName"
+                        v-model="projectTeamMembersSelection[playerName]" v-if="isLeader() && roundStage === 1">
                     ${ playerName }$ <span v-if="playerName == game.leader">&#128081;</span>
                 </label>
             </li>
         </ul>
         <div v-if="isLeader() && roundStage === 1">
-            <button type="button"
-                    @click="submitProjectTeamSelection()">
+            <button type="button" @click="submitProjectTeamSelection()">
                 Подтвердить</button>
         </div>
 
         <div v-if="roundStage === 2 && isPlayerProjectParticipant() && isActivePlayer()">
             <label>Choose your project participation: ${ playerProjectBid }$</label>
-            <input type="range" v-model="playerProjectBid" min="0" :max="game.all_players_points[playerName]"/>
+            <input type="range" v-model="playerProjectBid" min="0" :max="game.all_players_points[playerName]" />
 
             <button type="button" @click="makeProjectDeposit(playerProjectBid)">Submit participation</button>
         </div>
@@ -130,7 +122,8 @@
             <p>Wait until team developing project...</p>
         </div>
 
-        <div v-if="roundResults" style="position: absolute; z-index: 100; min-width: 300; min-height: 300; border: yellow 1px solid">
+        <div v-if="roundResults !== null"
+            style="position: absolute; top: 10px; left: 10px; z-index: 100; min-width: 300; min-height: 300; border: rgb(0, 17, 255) 1px solid; background-color: lavender;">
             Round result is ${ roundResults }$
         </div>
     </div>
@@ -209,7 +202,7 @@
                     console.log('Game started!')
                 },
                 makeProjectDeposit(points) {
-                    let payload =  {
+                    let payload = {
                         "room_id": this.roomId,
                         "player_name": this.playerName,
                         "points": points
@@ -280,10 +273,10 @@
                     console.log(arg)
                     vm.roundResults = arg.is_success
                     setTimeout(() => {
-                        Vue.nextTicks(() => {
+                        Vue.nextTick(() => {
                             vm.roundResults = null
                         })
-                    }, 1000)
+                    }, 5000)
                 })
             },
 

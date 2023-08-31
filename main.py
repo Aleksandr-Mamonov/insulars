@@ -203,7 +203,7 @@ def change_player_points(room_id, player_name, points: int):
     game = get_room_game(room_id)
     all_players_points = game["all_players_points"]
 
-    all_players_points[player_name] = (all_players_points[player_name] + points)
+    all_players_points[player_name] = all_players_points[player_name] + points
     game["all_players_points"] = all_players_points
     store_room_game(room_id, game)
 
@@ -214,7 +214,7 @@ def change_project_points(room_id, points_delta: int):
     game = get_room_game(room_id)
 
     round_common_account_points = game["round_common_account_points"]
-    round_common_account_points = (round_common_account_points + points_delta)
+    round_common_account_points = round_common_account_points + points_delta
 
     game["round_common_account_points"] = round_common_account_points
 
@@ -247,26 +247,30 @@ def handle_select_cards_from_table(data):
 
 
 def get_room_game(room_id):
-    result = select_one_from_db("SELECT game FROM rooms WHERE uid=:room_id", {"room_id": room_id})
+    result = select_one_from_db(
+        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": room_id}
+    )
 
     return json.loads(result["game"])
 
 
 def store_room_game(room_id, game):
-    write_to_db("UPDATE rooms SET game=:game WHERE uid=:room_id", {"game": json.dumps(game), "room_id": room_id})
+    write_to_db(
+        "UPDATE rooms SET game=:game WHERE uid=:room_id",
+        {"game": json.dumps(game), "room_id": room_id},
+    )
 
 
 def move_to_next_player(room_id):
-    """ Change active player to next one"""
-
+    """Change active player to next one"""
     game = get_room_game(room_id)
-
-    game["active_player"] = game["players_to_move"][0]
     game["players_to_move"].pop(0)
-
-    store_room_game(room_id, game)
-
-    return game
+    if len(game["players_to_move"]) > 0:
+        game["active_player"] = game["players_to_move"][0]
+        store_room_game(room_id, game)
+        return game, True
+    else:
+        return game, False
 
 
 def apply_project_result(game):
@@ -319,35 +323,33 @@ def start_next_round(room_id, game):
         return game
 
 
-@socketio.on('make_project_deposit')
+@socketio.on("make_project_deposit")
 def handle_make_project_deposit(data):
     """Player make a points deposit during project development"""
 
     room_id = data["room_id"]
-    points = int(data['points'])
+    points = int(data["points"])
 
-    change_player_points(room_id, data['player_name'], points)
+    change_player_points(room_id, data["player_name"], -points)
     game = change_project_points(room_id, points)
 
     emit("project_deposited", {"game": game}, to=data["room_id"])
     emit("player_points_changed", {"game": game}, to=data["room_id"])
 
-    # Remove player who already moved from a list
-    game["players_to_move"].pop(0)
-    store_room_game(room_id, game)
-
-    has_player_to_move_next = len(game["players_to_move"]) > 0
+    game, has_player_to_move_next = move_to_next_player(room_id)
 
     if has_player_to_move_next:
-        game = move_to_next_player(room_id)
         emit("move_started", {"game": game}, to=data["room_id"])
     else:
         is_success = apply_project_result(game)
         emit("round_result", {"is_success": is_success}, to=data["room_id"])
         game = start_next_round(room_id, game)
         if game is None:
-            write_to_db("UPDATE rooms SET game=NULL WHERE uid=:room_id", {"room_id": data["room_id"]})
-            emit("game_ended", {"winner": 1}, to=data["rom_id"])
+            write_to_db(
+                "UPDATE rooms SET game=NULL WHERE uid=:room_id",
+                {"room_id": data["room_id"]},
+            )
+            emit("game_ended", {"winner": 1}, to=data["room_id"])
         else:
             emit("round_started", {"game": game}, to=data["room_id"])
 
@@ -363,7 +365,9 @@ def handle_select_team_for_round(data):
     "selected_players": [player_name1, player_name2 ...],
     }
     """
-    result = select_one_from_db("SELECT game FROM rooms WHERE uid=:room_id", {"room_id": data["room_id"]})
+    result = select_one_from_db(
+        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": data["room_id"]}
+    )
     game = json.loads(result["game"])
     # Check whether card(s) for a given round were selected already or not
     if game["cards_selected_by_leader"] == []:
@@ -379,13 +383,13 @@ def handle_select_team_for_round(data):
     # Check whether leader selected appropriate number of players
     if min_players_in_team <= len(data["selected_players"]) <= max_players_in_team:
         game["team_selected_by_leader"] = data["selected_players"]
-        game['players_to_move'] = game["team_selected_by_leader"]
+        # game["players_to_move"] = game["team_selected_by_leader"]
     else:
         # TODO
         raise
 
     store_room_game(data["room_id"], game)
-    game = move_to_next_player(data["room_id"])
+    game, _ = move_to_next_player(data["room_id"])
 
     emit("team_for_round_selected", {"game": game}, to=data["room_id"])
 
