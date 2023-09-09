@@ -14,6 +14,7 @@ from config import (
     CARDS_IN_GAME,
 )
 from database import select_one_from_db, select_all_from_db, write_to_db
+from game_structure import apply_effects
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
@@ -187,6 +188,7 @@ def handle_game_start(data):
         "cards_on_table": cards_on_table,
         "cards_selected_by_leader": [],
         "team_selected_by_leader": [],
+        "effects_to_apply": [],
     }
     write_to_db(
         "UPDATE rooms SET game=:game WHERE uid=:room_id",
@@ -273,7 +275,7 @@ def move_to_next_player(room_id):
         return game, False
 
 
-def apply_project_result(game):
+def implement_project_result(game, room_id):
     # Check whether team succeeded or failed in ended round
     points_to_succeed = sum(
         [card["points_to_succeed"] for card in game["cards_selected_by_leader"]]
@@ -281,15 +283,19 @@ def apply_project_result(game):
     points_collected_by_team = game["round_common_account_points"]
 
     is_success = points_collected_by_team >= points_to_succeed
-    if is_success:
-        # TODO: Apply condition(s) on success from all selected card(s)
-        rewards = [card["on_success"] for card in game["cards_selected_by_leader"]]
-        print(f'Team succeeded in {game["round"]} round! Rewards: {rewards}')
-    else:
-        # TODO: Apply condition(s) on failure from all selected card(s)
-        punishment = [card["on_failure"] for card in game["cards_selected_by_leader"]]
-        print(f'Team failed in {game["round"]} round! Punishment: {punishment}')
 
+    for card in game["cards_selected_by_leader"]:
+        effect = card["on_success" if is_success else "on_failure"]
+        if effect:
+            effect = json.loads(effect)
+            if effect["type"] == "change_player_points":
+                effect["payload"]["players"].extend(game["team_selected_by_leader"])
+            elif effect["type"] == "leadership_ban_next_time":
+                effect["payload"]["player"] = game["leader"]
+
+        game["effects_to_apply"].append(effect)
+
+    store_room_game(room_id, game)
     return is_success
 
 
@@ -341,9 +347,10 @@ def handle_make_project_deposit(data):
     if has_player_to_move_next:
         emit("move_started", {"game": game}, to=data["room_id"])
     else:
-        is_success = apply_project_result(game)
+        is_success = implement_project_result(game, room_id)
         emit("round_result", {"is_success": is_success}, to=data["room_id"])
         game = start_next_round(room_id, game)
+
         if game is None:
             write_to_db(
                 "UPDATE rooms SET game=NULL WHERE uid=:room_id",
@@ -351,6 +358,8 @@ def handle_make_project_deposit(data):
             )
             emit("game_ended", {"winner": 1}, to=data["room_id"])
         else:
+            game = apply_effects(game, game["effects_to_apply"])
+            store_room_game(room_id, game)
             emit("round_started", {"game": game}, to=data["room_id"])
 
 
