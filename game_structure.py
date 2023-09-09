@@ -1,46 +1,14 @@
-game_id = "jksjfdfjgfjklsdjflaskjdfldhfjsdh"
-players = [1, 2, 3]
-all_players_points = {i["player_name"]: 10 for i in players}
-cards_on_table = ["card1", "card2", "card3"]
+def rotate_players_order_in_round(game: dict):
+    """Rotate players order in round, set active_player and leader in round accordingly."""
+    new_order = game["players_order_in_round"]
+    # Rotate players order for next round
+    new_order.append(new_order.pop(0))
+    game["players_order_in_round"] = new_order
+    game["players_to_move"] = new_order
+    game["active_player"] = new_order[0]
+    game["leader"] = new_order[0]
+    return game
 
-game = {
-    "game_id": game_id,
-    "players": tuple(players),
-    "all_players_points": all_players_points,
-    "active_round": {
-        "round": 1,
-        "players_order_in_round": players,
-        "players_to_move": players,
-        "active_player": players[0],
-        "leader": players[0],
-        "common_points_in_round": 0,
-        "cards_on_table": cards_on_table,
-        "cards_selected_by_leader": [],
-        "team_selected_by_leader": [],
-    },
-    # for example 1st and 2nd player gets 5 points next 3 rounds - pop from list
-    "future_effects_on_players_to_apply": {
-        1: {
-            "add_each_next_round": [5, 5, 5],
-            "can_be_leader_next_round": True,
-            "can_select_team_as_leader": True,
-            "can_select_cards_as_leader": True,
-        },
-        2: {
-            "add_each_next_round": [5, 5, 5],
-            "can_be_leader_next_round": True,
-            "can_select_team_as_leader": True,
-            "can_select_cards_as_leader": True,
-        },
-        3: {
-            "add_each_next_round": [-5, -5],
-            "can_be_leader_next_round": False,
-            "can_select_team_as_leader": True,
-            "can_select_cards_as_leader": True,
-        },
-    },
-    "round_history": {},  # TODO: Do we need to store sth about rounds that ended?
-}
 
 """
 There are 2 types of results that we apply after round ended: immediate and future.
@@ -58,16 +26,32 @@ to this "future_effects_on_players_to_apply" object.
 
 """
 
-effects = {
-    "apply_to_player": None,  # default None, otherwise player_name
-    "apply_to_all": True,
-    "add_each_next_round": [],
-    "can_be_leader_next_round": True,
-    "can_select_team_as_leader": True,
-    "can_select_cards_as_leader": True,
-}
 
+def apply_effects(game: dict, effects: list) -> dict:
+    """Get game from db, apply effects, return game.
+    Apply effects after round setup.
+    """
+    for i, effect in enumerate(effects):
+        payload = effect["payload"]
+        if effect["type"] == "change_player_points":
+            if payload["rounds_to_apply"] > 0:
+                for player in payload["players"]:
+                    game["all_players_points"][player] = (
+                        game["all_players_points"][player] + payload["points"]
+                    )
+                effect["payload"]["rounds_to_apply"] -= 1
+            else:
+                effects.pop(i)
+        elif effect["type"] == "leadership_ban_next_time":
+            if game["leader"] == payload["player"]:
+                game = rotate_players_order_in_round(game)
+                effects.pop(i)
+        elif effect["type"] == "cards_selection_ban_next_time":
+            # TODO
+            pass
+        elif effect["type"] == "team_selection_ban_next_time":
+            # TODO
+            pass
 
-def apply_effects(game: dict, effects: dict) -> dict:
-    """Get game from db, apply effects"""
+    game["effects_to_apply"] = effects
     return game

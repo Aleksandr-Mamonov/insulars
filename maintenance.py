@@ -22,13 +22,57 @@ def init_db():
     card_name,
     available BOOLEAN DEFAULT TRUE)"""
     )
+    # cur.execute(
+    #     """INSERT INTO cards VALUES
+    #     ('School', 15, 1, 2, '''
+    #                 {
+    #         "type": "change_player_points",
+    #         "payload": {
+    #             "rounds_to_apply": 3,
+    #             "points": 5,
+    #             "players": []
+    #         }
+    #         }
+    #         ''',
+    #         '''
+    #         {
+    #         "type": "change_player_points",
+    #         "payload": {
+    #             "rounds_to_apply": 3,
+    #             "points": -5,
+    #             "players": []
+    #         }
+    #         }
+    #         '''),
+    #     ('Station', 20, 1, 2, '''{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}''', ''),
+    #     ('Bridge', 20, 2, 2, '''
+    #         {
+    #         "type": "change_player_points",
+    #         "payload": {
+    #             "rounds_to_apply": 2,
+    #             "points": 10,
+    #             "players": []
+    #         }
+    #         }
+    #         ''', ''),
+    #     ('Hospital', 40, 1, 2, '''
+    #         {
+    #         "type": "change_player_points",
+    #         "payload": {
+    #             "rounds_to_apply": 3,
+    #             "points": 3,
+    #             "players": []
+    #         }
+    #         }
+    #         ''', '')
+    #         """
+    # )
     cur.execute(
         """INSERT INTO cards VALUES
-        ('School', 35, 1, 2, '{"condition_on_success": "some_condition"}', '{"condition_on_failure": "some_condition"}'),
-        ('Station', 50, 1, 2, '{"condition_on_success": "some_condition"}', '{"condition_on_failure": "some_condition"}'),
-        ('Bridge', 30, 2, 2, '{"condition_on_success": "some_condition"}', '{"condition_on_failure": "some_condition"}'),
-        ('Hospital', 40, 1, 2, '{"condition_on_success": "some_condition"}', '{"condition_on_failure": "some_condition"}')
-        """
+        
+        ('Station', 20, 1, 2, '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}', '')
+
+            """
     )
     con.commit()
 
