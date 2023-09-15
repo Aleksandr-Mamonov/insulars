@@ -278,7 +278,7 @@ def move_to_next_player(room_id):
 def implement_project_result(game, room_id):
     # Check whether team succeeded or failed in ended round
     points_to_succeed = sum(
-        [card["points_to_succeed"] for card in game["cards_selected_by_leader"]]
+        [int(card["points_to_succeed"]) for card in game["cards_selected_by_leader"]]
     )
     points_collected_by_team = game["round_common_account_points"]
 
@@ -293,7 +293,7 @@ def implement_project_result(game, room_id):
             elif effect["type"] == "leadership_ban_next_time":
                 effect["payload"]["player"] = game["leader"]
 
-        game["effects_to_apply"].append(effect)
+            game["effects_to_apply"].append(effect)
 
     store_room_game(room_id, game)
     return is_success
@@ -303,7 +303,7 @@ def start_next_round(room_id, game):
     game["round"] += 1
     # That was last round, so game ended. Show game results.
     if game["round"] > GAME_ROUNDS:
-        return None
+        return None, game
     else:
         players_order_in_new_round = game["players_order_in_round"]
         # Rotate players order for next round
@@ -326,7 +326,7 @@ def start_next_round(room_id, game):
 
         store_room_game(room_id, game)
 
-        return game
+        return game['round'], game
 
 
 @socketio.on("make_project_deposit")
@@ -349,14 +349,15 @@ def handle_make_project_deposit(data):
     else:
         is_success = implement_project_result(game, room_id)
         emit("round_result", {"is_success": is_success}, to=data["room_id"])
-        game = start_next_round(room_id, game)
+        next_round_n, game = start_next_round(room_id, game)
 
-        if game is None:
+        if next_round_n is None:
             write_to_db(
                 "UPDATE rooms SET game=NULL WHERE uid=:room_id",
                 {"room_id": data["room_id"]},
             )
-            emit("game_ended", {"winner": 1}, to=data["room_id"])
+            winner = define_winner(game)
+            emit("game_ended", {"winner": winner}, to=data["room_id"])
         else:
             game = apply_effects(game, game["effects_to_apply"])
             store_room_game(room_id, game)
@@ -401,6 +402,13 @@ def handle_select_team_for_round(data):
     game, _ = move_to_next_player(data["room_id"])
 
     emit("team_for_round_selected", {"game": game}, to=data["room_id"])
+
+
+def define_winner(game):
+    rating = game['all_players_points']
+    rating_sort = dict(sorted(rating.items(), key=lambda item: int(item[1])))
+
+    return list(rating_sort.keys())[-1]
 
 
 if __name__ == "__main__":
