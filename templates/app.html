@@ -1,6 +1,8 @@
 <html>
 
 <head>
+    <title>Game</title>
+
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"
         integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA=="
@@ -47,7 +49,7 @@
                 v-if="player.is_owner"
                 @click="startGame">Start game</button>
 
-        <details>
+        <details v-if="player.is_owner">
             <summary>Cards</summary>
             <div v-for="(card, idx) in cardDeck" style="padding: 10px; margin: 10px; background: lightgray">
                 <label>Name
