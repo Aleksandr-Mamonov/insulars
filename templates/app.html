@@ -96,6 +96,8 @@
 
 
     <div id="game-layout" v-if="game !== null">
+        <h3>Player points: ${game.all_players_points[playerName]}$</h3>
+
         <p>Round: ${game.round}$ (${ roundStage}$), ${ game.leader }$ is leader, ${ game.active_player }$ is active
             player</p>
 
@@ -134,7 +136,6 @@
             </div>
         </div>
 
-        <p>Player points: ${game.all_players_points[playerName]}$</p>
         <template v-if="playerName == game.active_player">
             <b>It's your move!</b>
         </template>
