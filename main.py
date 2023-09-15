@@ -8,10 +8,7 @@ import uuid
 from config import (
     MIN_PLAYERS,
     MAX_PLAYERS,
-    GAME_ROUNDS,
-    INITIAL_PLAYER_POINTS,
     CARDS_ON_TABLE_IN_ROUND,
-    CARDS_IN_GAME,
 )
 from database import select_one_from_db, select_all_from_db, write_to_db
 from game_structure import apply_effects
@@ -48,8 +45,8 @@ def _join_player_to_room(player_name, room_id):
     session["player_name"] = player_name
 
 
-def build_deck(game_id: str, cards: list):
-    multiple = CARDS_IN_GAME // len(cards) + 1
+def build_deck(game_id: str, cards: list, game_rounds: int):
+    multiple = (game_rounds * CARDS_ON_TABLE_IN_ROUND) // len(cards) + 1
 
     for card in cards * multiple:
         write_to_db(
@@ -171,10 +168,10 @@ def handle_game_start(data):
         {"room_id": room_id},
     )
     players = [i["player_name"] for i in result]
-    all_players_points = {i["player_name"]: INITIAL_PLAYER_POINTS for i in result}
+    all_players_points = {i["player_name"]: int(data['initial_player_points']) for i in result}
 
     game_id = str(uuid.uuid4())
-    build_deck(game_id, data["cards"])
+    build_deck(game_id, data["cards"], int(data['rounds']))
 
     cards_on_table = [
         draw_random_card_from_deck(game_id) for _ in range(CARDS_ON_TABLE_IN_ROUND)
@@ -193,6 +190,7 @@ def handle_game_start(data):
         "cards_selected_by_leader": [],
         "team_selected_by_leader": [],
         "effects_to_apply": [],
+        "rounds": int(data['rounds']),
     }
     write_to_db(
         "UPDATE rooms SET game=:game WHERE uid=:room_id",
@@ -302,7 +300,7 @@ def implement_project_result(game, room_id):
 def start_next_round(room_id, game):
     game["round"] += 1
     # That was last round, so game ended. Show game results.
-    if game["round"] > GAME_ROUNDS:
+    if game["round"] > game["rounds"]:
         return None, game
     else:
         players_order_in_new_round = game["players_order_in_round"]

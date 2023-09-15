@@ -54,7 +54,7 @@
 
 <body id="app">
 
-    <p><a href="/">Main</a></p>
+    <p><a href="/">New game</a></p>
     <h2>You are ${playerName}$</h2>
 
     <div id="lobby-layout" v-if="game === null">
@@ -68,7 +68,19 @@
                 @click="startGame">Start game</button>
 
         <details v-if="player.is_owner">
-            <summary>Cards</summary>
+            <summary>Configure</summary>
+
+            <div>
+                <label>Number of rounds
+                    <input v-model="gameConfig.rounds"/>
+                </label>
+            </div>
+            <div>
+                <label>Initial player points
+                    <input v-model="gameConfig.initialPlayerPoints"/>
+                </label>
+            </div>
+            <h4>Card deck</h4>
             <div v-for="(card, idx) in cardDeck" style="padding: 10px; margin: 10px; background: lightgray">
                 <label>Name
                     <input v-model="card.name"/>
@@ -98,13 +110,9 @@
 
             <button @click="addNewCardToGameDeck()">Add card</button>
 
-            <h4>Effect samples</h4>
-            <pre>
-                {"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}
-            </pre>
-            <pre>
-                {"type": "leadership_ban_next_time", "payload": {"player": null}}
-            </pre>
+            <h5>Effect samples</h5>
+            <pre>{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}</pre>
+            <pre>{"type": "leadership_ban_next_time", "payload": {"player": null}}</pre>
         </details>
     </div>
 
@@ -300,6 +308,10 @@
                     game: ref(null),
                     roundResults: ref(null),
                     winner: ref(null),
+                    gameConfig: ref({
+                        rounds: 3,
+                        initialPlayerPoints: 10,
+                    }),
                     cardDeck: ref([
                             {
                                 name: 'Station',
@@ -381,7 +393,12 @@
                     }
                 },
                 startGame() {
-                    socket.emit('start_game', { "room_id": this.roomId, "cards": this.cardDeck});
+                    socket.emit('start_game', {
+                        "room_id": this.roomId,
+                        "cards": this.cardDeck,
+                        "rounds": this.gameConfig.rounds,
+                        "initial_player_points": this.gameConfig.initialPlayerPoints
+                    });
                     console.log('Game started!')
                 },
                 makeProjectDeposit(points) {
