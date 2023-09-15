@@ -11,7 +11,6 @@
             min-width: 150px;
             width: 150px;
             min-height: 200px;
-            height: 200px;
             border: 2px #bbb solid;
             display: inline-block;
             margin-left: 5px;
@@ -22,11 +21,18 @@
             min-width: 300px;
             width: 300px;
             min-height: 400px;
-            height: 400px;
             border: 2px #000 solid;
             display: inline-block;
             margin-left: 5px;
             text-align: center;
+        }
+
+        .card-effect {}
+        .card-effect-success {
+            background-color: #bff;
+        }
+        .card-effect-failure {
+            background-color: #fbf;
         }
     </style>
 </head>
@@ -58,10 +64,36 @@
         <div v-if="game.cards_on_table && game.cards_on_table.length > 0">
             <div v-if="isLeader()">
                 <div>
-                    <div class="card" v-for="card in game.cards_on_table" :key="card_id" @click="toggleCard(card)">
+                    <div class="card"
+                         v-for="card in game.cards_on_table"
+                         :key="card_id"
+                         @click="toggleCard(card)">
+
                         <p>${ card.name }$</p>
                         <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
-                        <p>&#127991; ${ card.points_to_succeed }$</p>
+                        <p>&#129689; ${ card.points_to_succeed }$</p>
+
+                        <div v-for="condition in ['on_success', 'on_failure']"
+                             class="card-effect"
+                             :set="effect = parseCardEffect(card[condition])"
+                             :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
+
+                            <div v-if="effect.type">
+                                <h6>${ effect.type }$</h6>
+
+                                <div v-if="effect.type == 'change_player_points'">
+                                    <p>Give points to project team members</p>
+                                    <div>
+                                        <span>&#129689;&nbsp;<span v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
+                                        <span v-if="effect.payload.rounds_to_apply > 1">
+                                            &nbsp;/&nbsp;&#8987;&nbsp;${ effect.payload.rounds_to_apply }$
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
                         <p v-if="isCardSelected(card)">выбрана</p>
                     </div>
                 </div>
@@ -72,7 +104,27 @@
                     <div class="card" v-for="card in game.cards_on_table" :key="card_id">
                         <p>${ card.name }$</p>
                         <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
-                        <p>&#127991; ${ card.points_to_succeed }$</p>
+                        <p>&#129689; ${ card.points_to_succeed }$</p>
+
+                        <div v-for="condition in ['on_success', 'on_failure']"
+                             class="card-effect"
+                             :set="effect = parseCardEffect(card[condition])"
+                             :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
+
+                            <div v-if="effect.type">
+                                <h6>${ effect.type }$</h6>
+
+                                <div v-if="effect.type == 'change_player_points'">
+                                    <p>Give points to project team members</p>
+                                    <div>
+                                        <span>&#129689;&nbsp;<span v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
+                                        <span v-if="effect.payload.rounds_to_apply > 1">
+                                            &nbsp;/&nbsp;&#8987;&nbsp;${ effect.payload.rounds_to_apply }$
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -80,9 +132,30 @@
 
         <div v-if="roundStage > 0">
             <div class="card" v-for="card in game.cards_selected_by_leader" :key="card_id">
-                <p>${ card.name }$</p>
-                <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
-                <p>&#127991; ${ card.points_to_succeed }$</p>
+                    <p>${ card.name }$</p>
+                    <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
+                    <p>&#129689; ${ card.points_to_succeed }$</p>
+
+                    <div v-for="condition in ['on_success', 'on_failure']"
+                         class="card-effect"
+                         :set="effect = parseCardEffect(card[condition])"
+                         :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
+
+                        <div v-if="effect.type">
+                            <h6>${ effect.type }$</h6>
+
+                            <div v-if="effect.type == 'change_player_points'">
+                                <p>Give points to project team members</p>
+                                <div>
+                                    <span>&#129689;&nbsp;<span v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
+                                    <span v-if="effect.payload.rounds_to_apply > 1">
+                                        &#8987;&nbsp;${ effect.payload.rounds_to_apply }$
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
             </div>
 
             <div v-if="roundStage === 1">
@@ -95,6 +168,7 @@
         <template v-if="playerName == game.active_player">
             <b>It's your move!</b>
         </template>
+
         <p>Players:</p>
         <ul>
             <li v-for="playerName in game.players">
@@ -126,11 +200,28 @@
             style="position: absolute; top: 10px; left: 10px; z-index: 100; min-width: 300; min-height: 300; border: rgb(0, 17, 255) 1px solid; background-color: lavender;">
             Round result is ${ roundResults }$
         </div>
+
+        <div v-if="game.effects_to_apply">
+            Effects to apply:
+            <ul>
+                <li v-for="effect in game.effects_to_apply">
+                    ${ effect.type }$
+                    <span v-if="effect.type == 'change_player_points'">
+                        <span>&#129689;&nbsp;<span v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
+                        <span>
+                            &nbsp;/&nbsp;&#8987;&nbsp;${ effect.payload.rounds_to_apply }$
+                        </span>
+                        <span> for ${ effect.payload.players.join(', ') }$</span>
+                    </span>
+                </li>
+            </ul>
+        </div>
     </div>
 
     <script type="text/javascript" charset="utf-8">
         const { createApp, ref } = Vue
         var socket = io();
+
         createApp({
             setup() {
                 return {
@@ -178,6 +269,9 @@
                 }
             },
             methods: {
+                parseCardEffect(effect) {
+                    return effect ? JSON.parse(effect) : {}
+                },
                 isPlayerProjectParticipant() {
                     return this.roundStage === 2 && this.game.team_selected_by_leader.includes(this.playerName);
                 },
@@ -279,14 +373,9 @@
                     }, 5000)
                 })
             },
-
             delimiters: ["${", "}$"],
 
         }).mount('#app')
-
-
-        // socket.emit('my event', { data: 'Button clicked' })
-
 
     </script>
 </body>

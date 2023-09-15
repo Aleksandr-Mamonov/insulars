@@ -169,7 +169,7 @@ def handle_game_start(data):
     )
     players = [i["player_name"] for i in result]
     all_players_points = {i["player_name"]: INITIAL_PLAYER_POINTS for i in result}
-    # {'a': 10, 'b': 10}
+
     game_id = str(uuid.uuid4())
     build_deck(game_id)
     cards_on_table = [

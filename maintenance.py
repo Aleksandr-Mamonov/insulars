@@ -70,7 +70,7 @@ def init_db():
     cur.execute(
         """INSERT INTO cards VALUES
         
-        ('Station', 20, 1, 2, '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}', '')
+        ('Station', 20, 1, 2, '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}', '{"type": "change_player_points", "payload": {"rounds_to_apply": 2, "points": -3,"players": []}}')
 
             """
     )
