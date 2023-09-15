@@ -97,6 +97,14 @@
             </div>
 
             <button @click="addNewCardToGameDeck()">Add card</button>
+
+            <h4>Effect samples</h4>
+            <pre>
+                {"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}
+            </pre>
+            <pre>
+                {"type": "leadership_ban_next_time", "payload": {"player": null}}
+            </pre>
         </details>
     </div>
 
@@ -245,7 +253,7 @@
             Round result is ${ roundResults }$
         </div>
 
-        <div v-if="game.effects_to_apply">
+        <div v-if="game.effects_to_apply && game.effects_to_apply.length > 0">
             Effects to apply:
             <ul>
                 <li v-for="effect in game.effects_to_apply">
