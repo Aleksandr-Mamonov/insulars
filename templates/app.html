@@ -99,11 +99,6 @@
         <p>Round: ${game.round}$ (${ roundStage}$), ${ game.leader }$ is leader, ${ game.active_player }$ is active
             player</p>
 
-        <details>
-            <summary>Game</summary>
-            <pre>${ game }$</pre>
-        </details>
-
         <div v-if="game.cards_on_table && game.cards_on_table.length > 0">
             <div v-if="isLeader()">
                 <div>
@@ -139,7 +134,6 @@
             </div>
         </div>
 
-        <p>Common account: ${game.round_common_account_points}$ points</p>
         <p>Player points: ${game.all_players_points[playerName]}$</p>
         <template v-if="playerName == game.active_player">
             <b>It's your move!</b>
@@ -180,6 +174,14 @@
              class="overlay">
             ${ winner }$ wins!
         </div>
+
+        <hr/>
+        <details>
+            <summary>Game</summary>
+            <p>Common account: ${game.round_common_account_points}$ points</p>
+            <pre>${ game }$</pre>
+        </details>
+
     </div>
 
     <script type="text/javascript" charset="utf-8">
