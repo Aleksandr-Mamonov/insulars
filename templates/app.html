@@ -44,8 +44,43 @@
             <li v-for="p in players">${p.player_name}$</li>
         </ul>
         <button :disabled="players.length < config.MIN_PLAYERS || players.length > config.MAX_PLAYERS"
-            v-if="player.is_owner" @click="startGame">Start game</button>
+                v-if="player.is_owner"
+                @click="startGame">Start game</button>
+
+        <details>
+            <summary>Cards</summary>
+            <div v-for="(card, idx) in cardDeck" style="padding: 10px; margin: 10px; background: lightgray">
+                <label>Name
+                    <input v-model="card.name"/>
+                </label>
+                <label>Points to succeed
+                    <input v-model="card.points_to_succeed"/>
+                </label>
+                <label>Min team
+                    <input v-model="card.min_team"/>
+                </label>
+                <label>Max team
+                    <input v-model="card.max_team"/>
+                </label>
+                <div>
+                    <label>On success
+                        <textarea rows=6 cols=70 v-model="card.on_success"></textarea>
+                    </label>
+                </div>
+                <div>
+                    <label>On failure
+                        <textarea rows=6 cols=70  v-model="card.on_failure"></textarea>
+                    </label>
+                </div>
+
+                <button @click="rmCardFromGameDeck(idx)" v-if="cardDeck.length > 1">Rm card</button>
+            </div>
+
+            <button @click="addNewCardToGameDeck()">Add card</button>
+        </details>
     </div>
+
+
     <div id="game-layout" v-if="game !== null">
         <p>Round: ${game.round}$ (${ roundStage}$), ${ game.leader }$ is leader, ${ game.active_player }$ is active
             player</p>
@@ -142,7 +177,17 @@
                     players: ref([]),
                     config: {},
                     game: ref(null),
-                    roundResults: ref(null)
+                    roundResults: ref(null),
+                    cardDeck: ref([
+                            {
+                                name: 'Station',
+                                points_to_succeed: 20,
+                                min_team: 1,
+                                max_team: 2,
+                                on_success: '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}',
+                                on_failure: ''
+                            }
+                    ])
                 }
             },
             computed: {
@@ -190,6 +235,19 @@
                 isCardSelected(card) {
                     return this.selectedCards.map(c => c.card_id).includes(card.card_id);
                 },
+                addNewCardToGameDeck() {
+                    this.cardDeck.push(                      {
+                        name: 'New card',
+                        points_to_succeed: 20,
+                        min_team: 1,
+                        max_team: 2,
+                        on_success: '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}',
+                        on_failure: ''
+                    })
+                },
+                rmCardFromGameDeck(idx) {
+                    this.cardDeck.splice(idx, 1);
+                },
                 toggleCard(card) {
                     if (!this.isCardSelected(card)) {
                         this.selectedCards.push(card);
@@ -198,7 +256,7 @@
                     }
                 },
                 startGame() {
-                    socket.emit('start_game', { "room_id": this.roomId });
+                    socket.emit('start_game', { "room_id": this.roomId, "cards": this.cardDeck});
                     console.log('Game started!')
                 },
                 makeProjectDeposit(points) {

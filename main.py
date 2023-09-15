@@ -48,17 +48,22 @@ def _join_player_to_room(player_name, room_id):
     session["player_name"] = player_name
 
 
-def build_deck(game_id: str):
-    # TODO: How we build a deck? What rules?
-    result = select_all_from_db("SELECT name FROM cards", params={})
-    # [{'name': 'Bridge'}, {'name': 'Hospital'}, {'name': 'School'}, {'name': 'Station'}]
-    all_cards = [i["name"] for i in result]
-    multiple = CARDS_IN_GAME // len(all_cards) + 1
+def build_deck(game_id: str, cards: list):
+    multiple = CARDS_IN_GAME // len(cards) + 1
 
-    for card_name in all_cards * multiple:
+    for card in cards * multiple:
         write_to_db(
-            "INSERT INTO game_deck (game_id, card_name) VALUES (:game_id, :card_name)",
-            {"game_id": game_id, "card_name": card_name},
+            """INSERT INTO game_deck (game_id, card_name, points_to_succeed, min_team, max_team, on_success, on_failure)
+             VALUES (:game_id, :card_name, :points_to_succeed, :min_team, :max_team, :on_success, :on_failure)""",
+            {
+                "game_id": game_id,
+                "card_name": card['name'],
+                "points_to_succeed": card['points_to_succeed'],
+                "min_team": card['min_team'],
+                "max_team": card['max_team'],
+                "on_success": card['on_success'],
+                "on_failure": card['on_failure']
+            }
         )
 
 
@@ -67,16 +72,14 @@ def draw_random_card_from_deck(game_id: str) -> dict:
         """
         SELECT 
             gd.card_id,
-            c.name,
-            c.points_to_succeed, 
-            c.min_team, 
-            c.max_team, 
-            c.on_success, 
-            c.on_failure 
+            gd.card_name as name,
+            gd.points_to_succeed,
+            gd.min_team,
+            gd.max_team,
+            gd.on_success,
+            gd.on_failure
         FROM game_deck AS gd 
-        INNER JOIN cards AS c ON c.name=gd.card_name
-        WHERE gd.game_id=:game_id 
-        AND gd.available=TRUE 
+        WHERE gd.game_id=:game_id AND gd.available=TRUE
         ORDER BY RANDOM() 
         LIMIT 1
         """,
@@ -169,9 +172,10 @@ def handle_game_start(data):
     )
     players = [i["player_name"] for i in result]
     all_players_points = {i["player_name"]: INITIAL_PLAYER_POINTS for i in result}
-    # {'a': 10, 'b': 10}
+
     game_id = str(uuid.uuid4())
-    build_deck(game_id)
+    build_deck(game_id, data["cards"])
+
     cards_on_table = [
         draw_random_card_from_deck(game_id) for _ in range(CARDS_ON_TABLE_IN_ROUND)
     ]
@@ -194,11 +198,7 @@ def handle_game_start(data):
         "UPDATE rooms SET game=:game WHERE uid=:room_id",
         {"game": json.dumps(game), "room_id": room_id},
     )
-    emit(
-        "game_started",
-        {"game": game},
-        to=data["room_id"],
-    )
+    emit("game_started", {"game": game}, to=data["room_id"])
 
 
 def change_player_points(room_id, player_name, points: int):
@@ -405,5 +405,4 @@ def handle_select_team_for_round(data):
 
 if __name__ == "__main__":
     # socketio.run(app)
-    # build_deck("a")
     draw_random_card_from_deck("a")
