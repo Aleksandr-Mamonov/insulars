@@ -8,10 +8,7 @@ import uuid
 from config import (
     MIN_PLAYERS,
     MAX_PLAYERS,
-    GAME_ROUNDS,
-    INITIAL_PLAYER_POINTS,
     CARDS_ON_TABLE_IN_ROUND,
-    CARDS_IN_GAME,
 )
 from database import select_one_from_db, select_all_from_db, write_to_db
 from game_structure import apply_effects
@@ -48,17 +45,22 @@ def _join_player_to_room(player_name, room_id):
     session["player_name"] = player_name
 
 
-def build_deck(game_id: str):
-    # TODO: How we build a deck? What rules?
-    result = select_all_from_db("SELECT name FROM cards", params={})
-    # [{'name': 'Bridge'}, {'name': 'Hospital'}, {'name': 'School'}, {'name': 'Station'}]
-    all_cards = [i["name"] for i in result]
-    multiple = CARDS_IN_GAME // len(all_cards) + 1
+def build_deck(game_id: str, cards: list, game_rounds: int):
+    multiple = (game_rounds * CARDS_ON_TABLE_IN_ROUND) // len(cards) + 1
 
-    for card_name in all_cards * multiple:
+    for card in cards * multiple:
         write_to_db(
-            "INSERT INTO game_deck (game_id, card_name) VALUES (:game_id, :card_name)",
-            {"game_id": game_id, "card_name": card_name},
+            """INSERT INTO game_deck (game_id, card_name, points_to_succeed, min_team, max_team, on_success, on_failure)
+             VALUES (:game_id, :card_name, :points_to_succeed, :min_team, :max_team, :on_success, :on_failure)""",
+            {
+                "game_id": game_id,
+                "card_name": card['name'],
+                "points_to_succeed": card['points_to_succeed'],
+                "min_team": card['min_team'],
+                "max_team": card['max_team'],
+                "on_success": card['on_success'],
+                "on_failure": card['on_failure']
+            }
         )
 
 
@@ -67,16 +69,14 @@ def draw_random_card_from_deck(game_id: str) -> dict:
         """
         SELECT 
             gd.card_id,
-            c.name,
-            c.points_to_succeed, 
-            c.min_team, 
-            c.max_team, 
-            c.on_success, 
-            c.on_failure 
+            gd.card_name as name,
+            gd.points_to_succeed,
+            gd.min_team,
+            gd.max_team,
+            gd.on_success,
+            gd.on_failure
         FROM game_deck AS gd 
-        INNER JOIN cards AS c ON c.name=gd.card_name
-        WHERE gd.game_id=:game_id 
-        AND gd.available=TRUE 
+        WHERE gd.game_id=:game_id AND gd.available=TRUE
         ORDER BY RANDOM() 
         LIMIT 1
         """,
@@ -168,10 +168,11 @@ def handle_game_start(data):
         {"room_id": room_id},
     )
     players = [i["player_name"] for i in result]
-    all_players_points = {i["player_name"]: INITIAL_PLAYER_POINTS for i in result}
+    all_players_points = {i["player_name"]: int(data['initial_player_points']) for i in result}
 
     game_id = str(uuid.uuid4())
-    build_deck(game_id)
+    build_deck(game_id, data["cards"], int(data['rounds']))
+
     cards_on_table = [
         draw_random_card_from_deck(game_id) for _ in range(CARDS_ON_TABLE_IN_ROUND)
     ]
@@ -189,16 +190,13 @@ def handle_game_start(data):
         "cards_selected_by_leader": [],
         "team_selected_by_leader": [],
         "effects_to_apply": [],
+        "rounds": int(data['rounds']),
     }
     write_to_db(
         "UPDATE rooms SET game=:game WHERE uid=:room_id",
         {"game": json.dumps(game), "room_id": room_id},
     )
-    emit(
-        "game_started",
-        {"game": game},
-        to=data["room_id"],
-    )
+    emit("game_started", {"game": game}, to=data["room_id"])
 
 
 def change_player_points(room_id, player_name, points: int):
@@ -278,7 +276,7 @@ def move_to_next_player(room_id):
 def implement_project_result(game, room_id):
     # Check whether team succeeded or failed in ended round
     points_to_succeed = sum(
-        [card["points_to_succeed"] for card in game["cards_selected_by_leader"]]
+        [int(card["points_to_succeed"]) for card in game["cards_selected_by_leader"]]
     )
     points_collected_by_team = game["round_common_account_points"]
 
@@ -293,7 +291,7 @@ def implement_project_result(game, room_id):
             elif effect["type"] == "leadership_ban_next_time":
                 effect["payload"]["player"] = game["leader"]
 
-        game["effects_to_apply"].append(effect)
+            game["effects_to_apply"].append(effect)
 
     store_room_game(room_id, game)
     return is_success
@@ -302,8 +300,8 @@ def implement_project_result(game, room_id):
 def start_next_round(room_id, game):
     game["round"] += 1
     # That was last round, so game ended. Show game results.
-    if game["round"] > GAME_ROUNDS:
-        return None
+    if game["round"] > game["rounds"]:
+        return None, game
     else:
         players_order_in_new_round = game["players_order_in_round"]
         # Rotate players order for next round
@@ -326,7 +324,7 @@ def start_next_round(room_id, game):
 
         store_room_game(room_id, game)
 
-        return game
+        return game['round'], game
 
 
 @socketio.on("make_project_deposit")
@@ -349,14 +347,15 @@ def handle_make_project_deposit(data):
     else:
         is_success = implement_project_result(game, room_id)
         emit("round_result", {"is_success": is_success}, to=data["room_id"])
-        game = start_next_round(room_id, game)
+        next_round_n, game = start_next_round(room_id, game)
 
-        if game is None:
+        if next_round_n is None:
             write_to_db(
                 "UPDATE rooms SET game=NULL WHERE uid=:room_id",
                 {"room_id": data["room_id"]},
             )
-            emit("game_ended", {"winner": 1}, to=data["room_id"])
+            winner = define_winner(game)
+            emit("game_ended", {"winner": winner}, to=data["room_id"])
         else:
             game = apply_effects(game, game["effects_to_apply"])
             store_room_game(room_id, game)
@@ -403,7 +402,13 @@ def handle_select_team_for_round(data):
     emit("team_for_round_selected", {"game": game}, to=data["room_id"])
 
 
+def define_winner(game):
+    rating = game['all_players_points']
+    rating_sort = dict(sorted(rating.items(), key=lambda item: int(item[1])))
+
+    return list(rating_sort.keys())[-1]
+
+
 if __name__ == "__main__":
     # socketio.run(app)
-    # build_deck("a")
     draw_random_card_from_deck("a")
