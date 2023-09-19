@@ -54,13 +54,13 @@ def build_deck(game_id: str, cards: list, game_rounds: int):
              VALUES (:game_id, :card_name, :points_to_succeed, :min_team, :max_team, :on_success, :on_failure)""",
             {
                 "game_id": game_id,
-                "card_name": card['name'],
-                "points_to_succeed": card['points_to_succeed'],
-                "min_team": card['min_team'],
-                "max_team": card['max_team'],
-                "on_success": card['on_success'],
-                "on_failure": card['on_failure']
-            }
+                "card_name": card["name"],
+                "points_to_succeed": card["points_to_succeed"],
+                "min_team": card["min_team"],
+                "max_team": card["max_team"],
+                "on_success": card["on_success"],
+                "on_failure": card["on_failure"],
+            },
         )
 
 
@@ -168,10 +168,12 @@ def handle_game_start(data):
         {"room_id": room_id},
     )
     players = [i["player_name"] for i in result]
-    all_players_points = {i["player_name"]: int(data['initial_player_points']) for i in result}
+    all_players_points = {
+        i["player_name"]: int(data["initial_player_points"]) for i in result
+    }
 
     game_id = str(uuid.uuid4())
-    build_deck(game_id, data["cards"], int(data['rounds']))
+    build_deck(game_id, data["cards"], int(data["rounds"]))
 
     cards_on_table = [
         draw_random_card_from_deck(game_id) for _ in range(CARDS_ON_TABLE_IN_ROUND)
@@ -190,7 +192,7 @@ def handle_game_start(data):
         "cards_selected_by_leader": [],
         "team_selected_by_leader": [],
         "effects_to_apply": [],
-        "rounds": int(data['rounds']),
+        "rounds": int(data["rounds"]),
     }
     write_to_db(
         "UPDATE rooms SET game=:game WHERE uid=:room_id",
@@ -324,7 +326,7 @@ def start_next_round(room_id, game):
 
         store_room_game(room_id, game)
 
-        return game['round'], game
+        return game["round"], game
 
 
 @socketio.on("make_project_deposit")
@@ -403,12 +405,11 @@ def handle_select_team_for_round(data):
 
 
 def define_winner(game):
-    rating = game['all_players_points']
+    rating = game["all_players_points"]
     rating_sort = dict(sorted(rating.items(), key=lambda item: int(item[1])))
 
     return list(rating_sort.keys())[-1]
 
 
 if __name__ == "__main__":
-    # socketio.run(app)
-    draw_random_card_from_deck("a")
+    socketio.run(app)
