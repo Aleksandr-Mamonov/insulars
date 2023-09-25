@@ -11,7 +11,6 @@ from config import (
     CARDS_ON_TABLE_IN_ROUND,
 )
 from database import select_one_from_db, select_all_from_db, write_to_db
-from game_structure import apply_effects
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
@@ -95,6 +94,48 @@ def draw_random_card_from_deck(game_id: str) -> dict:
         {"card_id": card_id, "game_id": game_id},
     )
     return card
+
+
+def rotate_players_order_in_round(game: dict):
+    """Rotate players order in round, set active_player and leader in round accordingly."""
+    new_order = game["players_order_in_round"]
+    # Rotate players order for next round
+    new_order.append(new_order.pop(0))
+    game["players_order_in_round"] = new_order
+    game["players_to_move"] = new_order
+    game["active_player"] = new_order[0]
+    game["leader"] = new_order[0]
+    return game
+
+
+def apply_effects(game: dict, effects: list, room_id) -> dict:
+    """Get game from db, apply effects, return game.
+    Apply effects after round setup.
+    """
+    for i, effect in enumerate(effects):
+        payload = effect["payload"]
+        if effect["type"] == "change_player_points":
+            print(effect)
+            for player in payload["players"]:
+                game = change_player_points(
+                    room_id=room_id, player_name=player, points=payload["points"]
+                )
+            effect["payload"]["rounds_to_apply"] -= 1
+            if payload["rounds_to_apply"] <= 0:
+                effects.pop(i)
+        elif effect["type"] == "leadership_ban_next_time":
+            if game["leader"] == payload["player"]:
+                game = rotate_players_order_in_round(game)
+                effects.pop(i)
+        elif effect["type"] == "cards_selection_ban_next_time":
+            # TODO
+            pass
+        elif effect["type"] == "team_selection_ban_next_time":
+            # TODO
+            pass
+
+    game["effects_to_apply"] = effects
+    return game
 
 
 @app.route("/")
@@ -203,12 +244,10 @@ def handle_game_start(data):
 
 def change_player_points(room_id, player_name, points: int):
     game = get_room_game(room_id)
-    all_players_points = game["all_players_points"]
-
-    all_players_points[player_name] = all_players_points[player_name] + points
-    game["all_players_points"] = all_players_points
+    game["all_players_points"][player_name] = max(
+        game["all_players_points"][player_name] + points, 0
+    )
     store_room_game(room_id, game)
-
     return game
 
 
@@ -359,7 +398,7 @@ def handle_make_project_deposit(data):
             winner = define_winner(game)
             emit("game_ended", {"winner": winner}, to=data["room_id"])
         else:
-            game = apply_effects(game, game["effects_to_apply"])
+            game = apply_effects(game, game["effects_to_apply"], room_id)
             store_room_game(room_id, game)
             emit("round_started", {"game": game}, to=data["room_id"])
 

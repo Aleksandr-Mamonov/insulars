@@ -28,6 +28,7 @@
             margin-left: 5px;
             text-align: center;
         }
+
         .overlay {
             top: 0;
             left: 0;
@@ -42,9 +43,11 @@
         }
 
         .card-effect {}
+
         .card-effect-success {
             background-color: #bff;
         }
+
         .card-effect-failure {
             background-color: #fbf;
         }
@@ -64,35 +67,34 @@
             <li v-for="p in players">${p.player_name}$</li>
         </ul>
         <button :disabled="players.length < config.MIN_PLAYERS || players.length > config.MAX_PLAYERS"
-                v-if="player.is_owner"
-                @click="startGame">Start game</button>
+            v-if="player.is_owner" @click="startGame">Start game</button>
 
         <details v-if="player.is_owner">
             <summary>Configure</summary>
 
             <div>
                 <label>Number of rounds
-                    <input v-model="gameConfig.rounds"/>
+                    <input v-model="gameConfig.rounds" />
                 </label>
             </div>
             <div>
                 <label>Initial player points
-                    <input v-model="gameConfig.initialPlayerPoints"/>
+                    <input v-model="gameConfig.initialPlayerPoints" />
                 </label>
             </div>
             <h4>Card deck</h4>
             <div v-for="(card, idx) in cardDeck" style="padding: 10px; margin: 10px; background: lightgray">
                 <label>Name
-                    <input v-model="card.name"/>
+                    <input v-model="card.name" />
                 </label>
                 <label>Points to succeed
-                    <input v-model="card.points_to_succeed"/>
+                    <input v-model="card.points_to_succeed" />
                 </label>
                 <label>Min team
-                    <input v-model="card.min_team"/>
+                    <input v-model="card.min_team" />
                 </label>
                 <label>Max team
-                    <input v-model="card.max_team"/>
+                    <input v-model="card.max_team" />
                 </label>
                 <div>
                     <label>On success
@@ -101,7 +103,7 @@
                 </div>
                 <div>
                     <label>On failure
-                        <textarea rows=6 cols=70  v-model="card.on_failure"></textarea>
+                        <textarea rows=6 cols=70 v-model="card.on_failure"></textarea>
                     </label>
                 </div>
 
@@ -126,19 +128,15 @@
         <div v-if="game.cards_on_table && game.cards_on_table.length > 0">
             <div v-if="isLeader()">
                 <div>
-                    <div class="card"
-                         v-for="card in game.cards_on_table"
-                         :key="card_id"
-                         @click="toggleCard(card)">
+                    <div class="card" v-for="card in game.cards_on_table" :key="card_id" @click="toggleCard(card)">
 
                         <p>${ card.name }$</p>
                         <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
                         <p>&#129689; ${ card.points_to_succeed }$</p>
 
-                        <div v-for="condition in ['on_success', 'on_failure']"
-                             class="card-effect"
-                             :set="effect = parseCardEffect(card[condition])"
-                             :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
+                        <div v-for="condition in ['on_success', 'on_failure']" class="card-effect"
+                            :set="effect = parseCardEffect(card[condition])"
+                            :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
 
                             <div v-if="effect.type">
                                 <h6>${ effect.type }$</h6>
@@ -146,7 +144,8 @@
                                 <div v-if="effect.type == 'change_player_points'">
                                     <p>Give points to project team members</p>
                                     <div>
-                                        <span>&#129689;&nbsp;<span v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
+                                        <span>&#129689;&nbsp;<span
+                                                v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
                                         <span v-if="effect.payload.rounds_to_apply > 1">
                                             &nbsp;/&nbsp;&#8987;&nbsp;${ effect.payload.rounds_to_apply }$
                                         </span>
@@ -168,10 +167,9 @@
                         <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
                         <p>&#129689; ${ card.points_to_succeed }$</p>
 
-                        <div v-for="condition in ['on_success', 'on_failure']"
-                             class="card-effect"
-                             :set="effect = parseCardEffect(card[condition])"
-                             :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
+                        <div v-for="condition in ['on_success', 'on_failure']" class="card-effect"
+                            :set="effect = parseCardEffect(card[condition])"
+                            :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
 
                             <div v-if="effect.type">
                                 <h6>${ effect.type }$</h6>
@@ -179,7 +177,8 @@
                                 <div v-if="effect.type == 'change_player_points'">
                                     <p>Give points to project team members</p>
                                     <div>
-                                        <span>&#129689;&nbsp;<span v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
+                                        <span>&#129689;&nbsp;<span
+                                                v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
                                         <span v-if="effect.payload.rounds_to_apply > 1">
                                             &nbsp;/&nbsp;&#8987;&nbsp;${ effect.payload.rounds_to_apply }$
                                         </span>
@@ -194,30 +193,30 @@
 
         <div v-if="roundStage > 0">
             <div class="card" v-for="card in game.cards_selected_by_leader" :key="card_id">
-                    <p>${ card.name }$</p>
-                    <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
-                    <p>&#129689; ${ card.points_to_succeed }$</p>
+                <p>${ card.name }$</p>
+                <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
+                <p>&#129689; ${ card.points_to_succeed }$</p>
 
-                    <div v-for="condition in ['on_success', 'on_failure']"
-                         class="card-effect"
-                         :set="effect = parseCardEffect(card[condition])"
-                         :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
+                <div v-for="condition in ['on_success', 'on_failure']" class="card-effect"
+                    :set="effect = parseCardEffect(card[condition])"
+                    :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
 
-                        <div v-if="effect.type">
-                            <h6>${ effect.type }$</h6>
+                    <div v-if="effect.type">
+                        <h6>${ effect.type }$</h6>
 
-                            <div v-if="effect.type == 'change_player_points'">
-                                <p>Give points to project team members</p>
-                                <div>
-                                    <span>&#129689;&nbsp;<span v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
-                                    <span v-if="effect.payload.rounds_to_apply > 1">
-                                        &#8987;&nbsp;${ effect.payload.rounds_to_apply }$
-                                    </span>
-                                </div>
+                        <div v-if="effect.type == 'change_player_points'">
+                            <p>Give points to project team members</p>
+                            <div>
+                                <span>&#129689;&nbsp;<span
+                                        v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
+                                <span v-if="effect.payload.rounds_to_apply > 1">
+                                    &#8987;&nbsp;${ effect.payload.rounds_to_apply }$
+                                </span>
                             </div>
                         </div>
-
                     </div>
+
+                </div>
             </div>
 
             <div v-if="roundStage === 1">
@@ -256,8 +255,7 @@
             <p>Wait until team developing project...</p>
         </div>
 
-        <div v-if="roundResults !== null"
-            class="overlay">
+        <div v-if="roundResults !== null" class="overlay">
             Round result is ${ roundResults }$
         </div>
 
@@ -267,7 +265,8 @@
                 <li v-for="effect in game.effects_to_apply">
                     ${ effect.type }$
                     <span v-if="effect.type == 'change_player_points'">
-                        <span>&#129689;&nbsp;<span v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
+                        <span>&#129689;&nbsp;<span
+                                v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
                         <span>
                             &nbsp;/&nbsp;&#8987;&nbsp;${ effect.payload.rounds_to_apply }$
                         </span>
@@ -277,12 +276,11 @@
             </ul>
         </div>
 
-        <div v-if="winner !== null"
-             class="overlay">
+        <div v-if="winner !== null" class="overlay">
             ${ winner }$ wins!
         </div>
 
-        <hr/>
+        <hr />
         <details>
             <summary>Game</summary>
             <p>Common account: ${game.round_common_account_points}$ points</p>
@@ -313,14 +311,14 @@
                         initialPlayerPoints: 10,
                     }),
                     cardDeck: ref([
-                            {
-                                name: 'Station',
-                                points_to_succeed: 20,
-                                min_team: 1,
-                                max_team: 2,
-                                on_success: '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}',
-                                on_failure: ''
-                            }
+                        {
+                            name: 'Station',
+                            points_to_succeed: 20,
+                            min_team: 1,
+                            max_team: 2,
+                            on_success: '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}',
+                            on_failure: '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": -15, "players": []}}'
+                        }
                     ])
                 }
             },
@@ -373,7 +371,7 @@
                     return this.selectedCards.map(c => c.card_id).includes(card.card_id);
                 },
                 addNewCardToGameDeck() {
-                    this.cardDeck.push(                      {
+                    this.cardDeck.push({
                         name: 'New card',
                         points_to_succeed: 20,
                         min_team: 1,
