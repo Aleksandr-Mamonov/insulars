@@ -385,15 +385,15 @@ def handle_select_team_for_round(data):
         raise
     # How many min and max players should be in a team
     min_players_in_team = min(
-        [card["min_team"] for card in game["cards_selected_by_leader"]]
+        [int(card["min_team"]) for card in game["cards_selected_by_leader"]]
     )
     max_players_in_team = max(
-        [card["max_team"] for card in game["cards_selected_by_leader"]]
+        [int(card["max_team"]) for card in game["cards_selected_by_leader"]]
     )
     # Check whether leader selected appropriate number of players
     if min_players_in_team <= len(data["selected_players"]) <= max_players_in_team:
         game["team_selected_by_leader"] = data["selected_players"]
-        # game["players_to_move"] = game["team_selected_by_leader"]
+        game["players_to_move"] = [""] + game["team_selected_by_leader"]
     else:
         # TODO
         raise
