@@ -439,7 +439,7 @@ def handle_select_team_for_round(data):
     emit("team_for_round_selected", {"game": game}, to=data["room_id"])
 
 
-def define_rating_and_winners(game: dict) -> tuple(list, list):
+def define_rating_and_winners(game: dict) -> tuple[list, list]:
     """Returns rating of all players in the game and winner(s).
     If multiple players have the same max number of points, they all are winners.
     """
