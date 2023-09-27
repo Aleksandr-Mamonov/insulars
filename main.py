@@ -115,7 +115,6 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
     for i, effect in enumerate(effects):
         payload = effect["payload"]
         if effect["type"] == "change_player_points":
-            print(effect)
             for player in payload["players"]:
                 game = change_player_points(
                     room_id=room_id, player_name=player, points=payload["points"]
@@ -185,17 +184,13 @@ def handle_player_enter(data):
     """,
         {"room_id": room_id},
     )
-
-    room = select_one_from_db(
-        "SELECT game FROM rooms WHERE uid=:room_id",
-        {"room_id": room_id},
-    )
+    game = get_room_game(room_id)
     emit(
         "room_entered",
         {
             "players": players,
             "config": {"MIN_PLAYERS": MIN_PLAYERS, "MAX_PLAYERS": MAX_PLAYERS},
-            "game": json.loads(room["game"]) if room["game"] else None,
+            "game": game,
         },
         to=room_id,
     )
@@ -235,6 +230,13 @@ def handle_game_start(data):
         "effects_to_apply": [],
         "rounds": int(data["rounds"]),
     }
+    number_of_games_in_room = select_one_from_db(
+        "SELECT number_of_games FROM rooms WHERE uid=:room_id",
+        {"room_id": data["room_id"]},
+    )["number_of_games"]
+    if number_of_games_in_room > 0:
+        for rotation in range(number_of_games_in_room % len(players)):
+            game = rotate_players_order_in_round(game)
     write_to_db(
         "UPDATE rooms SET game=:game WHERE uid=:room_id",
         {"game": json.dumps(game), "room_id": room_id},
@@ -267,11 +269,7 @@ def change_project_points(room_id, points_delta: int):
 @socketio.on("select_cards_from_table")
 def handle_select_cards_from_table(data):
     """Card(s) can be selected only by leader in current round."""
-    result = select_one_from_db(
-        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": data["room_id"]}
-    )
-    game = json.loads(result["game"])
-
+    game = get_room_game(data["room_id"])
     for card in game["cards_on_table"]:
         card_id = card["card_id"]
         for selected_card_id in data["selected_cards_ids"]:
@@ -292,7 +290,7 @@ def get_room_game(room_id):
         "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": room_id}
     )
 
-    return json.loads(result["game"])
+    return json.loads(result["game"]) if result["game"] else None
 
 
 def store_room_game(room_id, game):
@@ -389,16 +387,15 @@ def handle_make_project_deposit(data):
         is_success = implement_project_result(game, room_id)
         emit("round_result", {"is_success": is_success}, to=data["room_id"])
         next_round_n, game = start_next_round(room_id, game)
-
+        game = apply_effects(game, game["effects_to_apply"], room_id)
         if next_round_n is None:
             write_to_db(
-                "UPDATE rooms SET game=NULL WHERE uid=:room_id",
+                "UPDATE rooms SET game=NULL, number_of_games=number_of_games+1 WHERE uid=:room_id",
                 {"room_id": data["room_id"]},
             )
             winner = define_winner(game)
             emit("game_ended", {"winner": winner}, to=data["room_id"])
         else:
-            game = apply_effects(game, game["effects_to_apply"], room_id)
             store_room_game(room_id, game)
             emit("round_started", {"game": game}, to=data["room_id"])
 
@@ -414,10 +411,7 @@ def handle_select_team_for_round(data):
     "selected_players": [player_name1, player_name2 ...],
     }
     """
-    result = select_one_from_db(
-        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": data["room_id"]}
-    )
-    game = json.loads(result["game"])
+    game = get_room_game(data["room_id"])
     # Check whether card(s) for a given round were selected already or not
     if game["cards_selected_by_leader"] == []:
         # TODO
