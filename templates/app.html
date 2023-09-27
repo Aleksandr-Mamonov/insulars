@@ -252,6 +252,9 @@
                 Подтвердить</button>
         </div>
 
+        <div v-if="roundStage === 2">
+            Выбрана команда ${ game.team_selected_by_leader.join(', ') }$
+        </div>
         <div v-if="roundStage === 2 && isPlayerProjectParticipant() && isActivePlayer()">
             <label>Выберите, сколько вложить в проект: ${ playerProjectBid }$</label>
             <input type="range" v-model="playerProjectBid" min="0" :max="game.all_players_points[playerName]" />
