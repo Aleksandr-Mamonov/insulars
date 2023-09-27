@@ -92,6 +92,26 @@
                     <input v-model="gameConfig.initialPlayerPoints" />
                 </label>
             </div>
+            <h4>Card effect visibility</h4>
+            <div>
+                <p>On success effect</p>
+                <label>Leader
+                    <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onSuccess.leader" />
+                </label>
+                <label>Players
+                    <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onSuccess.players" />
+                </label>
+            </div>
+            <div>
+                <p>On failure effect</p>
+                <label>Leader
+                    <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onFailure.leader" />
+                </label>
+                <label>PLayers
+                    <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onFailure.players" />
+                </label>
+            </div>
+
             <h4>Card deck</h4>
             <div v-for="(card, idx) in cardDeck" style="padding: 10px; margin: 10px; background: lightgray">
                 <label>Name
@@ -148,15 +168,21 @@
 
                             <div v-if="effect.type">
                                 <div><small>${ condition == 'on_success' ? 'При успехе' : 'При провале' }$</small></div>
-                                <div v-if="effect.type == 'change_player_points'">
-                                    <div>
-                                        Каждому участнику
-                                        <span>&#129689;&nbsp;<span
-                                                v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
-                                        <span v-if="effect.payload.rounds_to_apply > 1">
-                                            &nbsp;/ &nbsp;&#8987;&nbsp;${ effect.payload.rounds_to_apply }$
-                                        </span>
+                                <div v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['leader'] === true">
+                                    <div v-if="effect.type == 'change_player_points'">
+                                        <div>
+                                            Каждому участнику
+                                            <span>&#129689;&nbsp;<span
+                                                    v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
+                                            <span v-if="effect.payload.rounds_to_apply > 1">
+                                                &nbsp;/ &nbsp;&#8987;&nbsp;${ effect.payload.rounds_to_apply }$
+                                            </span>
+                                        </div>
                                     </div>
+                                </div>
+
+                                <div v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['leader'] === false">
+                                    <p>Эффект скрыт</p>
                                 </div>
                             </div>
 
@@ -180,15 +206,21 @@
 
                             <div v-if="effect.type">
                                 <div><small>${ condition == 'on_success' ? 'При успехе' : 'При провале' }$</small></div>
-                                <div v-if="effect.type == 'change_player_points'">
-                                    <div>
-                                        Каждому участнику
-                                        <span>&#129689;&nbsp;<span
-                                                v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
-                                        <span v-if="effect.payload.rounds_to_apply > 1">
-                                            &nbsp;/&nbsp;&#8987;&nbsp;${ effect.payload.rounds_to_apply }$
-                                        </span>
+                                <div v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['players'] === true">
+                                    <div v-if="effect.type == 'change_player_points'">
+                                        <div>
+                                            Каждому участнику
+                                            <span>&#129689;&nbsp;<span
+                                                    v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
+                                            <span v-if="effect.payload.rounds_to_apply > 1">
+                                                &nbsp;/&nbsp;&#8987;&nbsp;${ effect.payload.rounds_to_apply }$
+                                            </span>
+                                        </div>
                                     </div>
+                                </div>
+
+                                <div v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['players'] === false">
+                                    Эффект скрыт
                                 </div>
                             </div>
                         </div>
@@ -209,15 +241,20 @@
 
                     <div v-if="effect.type">
                         <div><small>${ condition == 'on_success' ? 'При успехе' : 'При провале' }$</small></div>
-                        <div v-if="effect.type == 'change_player_points'">
-                            <div>
-                                Каждому участнику
-                                <span>&#129689;&nbsp;<span
-                                        v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
-                                <span v-if="effect.payload.rounds_to_apply > 1">
-                                    / &#8987;&nbsp;${ effect.payload.rounds_to_apply }$
-                                </span>
+                        <div v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure'][isLeader() ? 'leader' : 'players'] === true">
+                            <div v-if="effect.type == 'change_player_points'">
+                                <div>
+                                    Каждому участнику
+                                    <span>&#129689;&nbsp;<span
+                                            v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
+                                    <span v-if="effect.payload.rounds_to_apply > 1">
+                                        / &#8987;&nbsp;${ effect.payload.rounds_to_apply }$
+                                    </span>
+                                </div>
                             </div>
+                        </div>
+                        <div v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure'][isLeader() ? 'leader' : 'players'] === false">
+                            Эффект скрыт
                         </div>
                     </div>
 
@@ -321,6 +358,16 @@
                     gameConfig: ref({
                         rounds: 3,
                         initialPlayerPoints: 10,
+                        cardEffectVisibility: {
+                          'onSuccess': {
+                            'leader': true,
+                            'players': true
+                          },
+                          'onFailure': {
+                            'leader': true,
+                            'players': true
+                          }
+                        }
                     }),
                     cardDeck: ref([
                         {
@@ -407,7 +454,8 @@
                         "room_id": this.roomId,
                         "cards": this.cardDeck,
                         "rounds": this.gameConfig.rounds,
-                        "initial_player_points": this.gameConfig.initialPlayerPoints
+                        "initial_player_points": this.gameConfig.initialPlayerPoints,
+                        "card_effect_visibility": this.gameConfig.cardEffectVisibility
                     });
                     console.log('Game started!')
                 },

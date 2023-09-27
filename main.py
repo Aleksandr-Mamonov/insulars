@@ -229,18 +229,22 @@ def handle_game_start(data):
         "team_selected_by_leader": [],
         "effects_to_apply": [],
         "rounds": int(data["rounds"]),
+        "card_effect_visibility": data['card_effect_visibility'],
     }
     number_of_games_in_room = select_one_from_db(
         "SELECT number_of_games FROM rooms WHERE uid=:room_id",
         {"room_id": data["room_id"]},
     )["number_of_games"]
+
     if number_of_games_in_room > 0:
         for rotation in range(number_of_games_in_room % len(players)):
             game = rotate_players_order_in_round(game)
+
     write_to_db(
         "UPDATE rooms SET game=:game WHERE uid=:room_id",
         {"game": json.dumps(game), "room_id": room_id},
     )
+
     emit("game_started", {"game": game}, to=data["room_id"])
 
 
