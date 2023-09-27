@@ -60,12 +60,21 @@
     <p><a href="/">New game</a></p>
     <h2>You are ${playerName}$</h2>
 
+    <div v-if="finalRating !== null" class="overlay">
+        <h2>Игра окончена!</h2>
+        <div v-for="rank in finalRating">${ rank[0] }$ - &#129689; ${ rank[1] }$</div>
+
+        <button @click="finalRating = null; game = null">Закрыть</button>
+    </div>
+
     <div id="lobby-layout" v-if="game === null">
         <a href="/?room_id={{room_id}}">Invite another player</a>
         <h1>Room</h1>
+
         <ul>
             <li v-for="p in players">${p.player_name}$</li>
         </ul>
+
         <button :disabled="players.length < config.MIN_PLAYERS || players.length > config.MAX_PLAYERS"
             v-if="player.is_owner" @click="startGame">Start game</button>
 
@@ -117,7 +126,6 @@
             <pre>{"type": "leadership_ban_next_time", "payload": {"player": null}}</pre>
         </details>
     </div>
-
 
     <div id="game-layout" v-if="game !== null">
         <h3>Player points: ${game.all_players_points[playerName]}$</h3>
@@ -245,22 +253,28 @@
         </div>
 
         <div v-if="roundStage === 2 && isPlayerProjectParticipant() && isActivePlayer()">
-            <label>Choose your project participation: ${ playerProjectBid }$</label>
+            <label>Выберите, сколько вложить в проект: ${ playerProjectBid }$</label>
             <input type="range" v-model="playerProjectBid" min="0" :max="game.all_players_points[playerName]" />
 
-            <button type="button" @click="makeProjectDeposit(playerProjectBid)">Submit participation</button>
+            <button type="button" @click="makeProjectDeposit(playerProjectBid)">Подтвердить</button>
         </div>
 
         <div v-if="roundStage === 2 && (!isPlayerProjectParticipant() || !isActivePlayer())">
-            <p>Wait until team developing project...</p>
+            <p>Ждем результатов строительства</p>
         </div>
 
         <div v-if="roundResults !== null" class="overlay">
-            Round result is ${ roundResults }$
+            Здание
+            <span v-if="roundResults === false" style="color: red"> не построено</span>
+            <span v-if="roundResults !== false" style="color: green">построено</span>
+
+            <div>
+                <button @click="roundResults = null">Закрыть</button>
+            </div>
         </div>
 
         <div v-if="game.effects_to_apply && game.effects_to_apply.length > 0">
-            Effects to apply:
+            Действующие эффекты:
             <ul>
                 <li v-for="effect in game.effects_to_apply">
                     ${ effect.type }$
@@ -274,10 +288,6 @@
                     </span>
                 </li>
             </ul>
-        </div>
-
-        <div v-if="winner !== null" class="overlay">
-            ${ winner }$ wins!
         </div>
 
         <hr />
@@ -305,7 +315,7 @@
                     config: {},
                     game: ref(null),
                     roundResults: ref(null),
-                    winner: ref(null),
+                    finalRating: ref(null),
                     gameConfig: ref({
                         rounds: 3,
                         initialPlayerPoints: 10,
@@ -441,13 +451,7 @@
                     vm.game = arg.game
                 });
                 socket.on('game_ended', (arg) => {
-                    vm.winner = arg.winner;
-                    setTimeout(() => {
-                        Vue.nextTick(() => {
-                            vm.winner = null;
-                            vm.game = null
-                        })
-                    }, 4000)
+                    vm.finalRating = arg.rating;
                 });
                 socket.on('round_started', (arg) => {
                     console.log(arg)
@@ -475,11 +479,6 @@
                 socket.on('round_result', (arg) => {
                     console.log(arg)
                     vm.roundResults = arg.is_success
-                    setTimeout(() => {
-                        Vue.nextTick(() => {
-                            vm.roundResults = null
-                        })
-                    }, 4000)
                 })
             },
             delimiters: ["${", "}$"],
