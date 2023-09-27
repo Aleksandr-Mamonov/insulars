@@ -393,8 +393,10 @@ def handle_make_project_deposit(data):
                 "UPDATE rooms SET game=NULL, number_of_games=number_of_games+1 WHERE uid=:room_id",
                 {"room_id": data["room_id"]},
             )
-            winner = define_winner(game)
-            emit("game_ended", {"winner": winner}, to=data["room_id"])
+            rating, winners = define_rating_and_winners(game)
+            emit(
+                "game_ended", {"rating": rating, "winners": winners}, to=data["room_id"]
+            )
         else:
             store_room_game(room_id, game)
             emit("round_started", {"game": game}, to=data["room_id"])
@@ -437,11 +439,24 @@ def handle_select_team_for_round(data):
     emit("team_for_round_selected", {"game": game}, to=data["room_id"])
 
 
-def define_winner(game):
-    rating = game["all_players_points"]
-    rating_sort = dict(sorted(rating.items(), key=lambda item: int(item[1])))
+def define_rating_and_winners(game: dict) -> tuple[list, list]:
+    """Returns rating of all players in the game and winner(s).
+    If multiple players have the same max number of points, they all are winners.
+    """
 
-    return list(rating_sort.keys())[-1]
+    all_players_points = game["all_players_points"]
+    rating = sorted(all_players_points.items(), key=lambda item: int(item[1]))[::-1]
+    winners = [
+        name
+        for name, points in rating
+        if points == max([points for _, points in rating])
+    ]
+    # winners = [
+    #     k
+    #     for k, v in all_players_points.items()
+    #     if v == max(all_players_points.values())
+    # ]
+    return rating, winners
 
 
 if __name__ == "__main__":
