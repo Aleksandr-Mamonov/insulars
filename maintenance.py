@@ -7,7 +7,7 @@ def init_db():
     cur.execute(
         "CREATE TABLE IF NOT EXISTS rooms(uid, owner, game, number_of_games INTEGER DEFAULT 0)"
     )
-    cur.execute("CREATE TABLE IF NOT EXISTS room_players(room_id, player_name, sid)")
+    cur.execute("CREATE TABLE IF NOT EXISTS room_players(room_id, player_name)")
     cur.execute(
         """CREATE TABLE IF NOT EXISTS cards (
         name UNIQUE,
@@ -31,10 +31,10 @@ def init_db():
         available BOOLEAN DEFAULT TRUE
     )"""
     )
-
+    # on_success/on_failure['payload']['categories_of_players'] = ['all', 'leader', 'team', 'others', 'random_player']
     cur.execute(
         """INSERT INTO cards VALUES
-        ('Station', 20, 1, 2, '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10, "players": []}}', '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": -5, "players": []}}')
+        ('Station', 20, 1, 2, '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "categories_of_players": ["leader", "team"], "points": 10, "players": []}}', '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": -5, "players": []}}')
     """
     )
     con.commit()

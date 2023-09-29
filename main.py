@@ -1,9 +1,9 @@
+import json
+import random
+import uuid
+
 from flask import Flask, url_for, redirect, request, render_template, session
 from flask_socketio import SocketIO, emit, send, join_room, leave_room
-
-import json
-import sqlite3
-import uuid
 
 from config import (
     MIN_PLAYERS,
@@ -226,10 +226,10 @@ def handle_game_start(data):
         "round_common_account_points": 0,
         "cards_on_table": cards_on_table,
         "cards_selected_by_leader": [],
-        "team_selected_by_leader": [],
+        "team": [],
         "effects_to_apply": [],
         "rounds": int(data["rounds"]),
-        "card_effect_visibility": data['card_effect_visibility'],
+        "card_effect_visibility": data["card_effect_visibility"],
     }
     number_of_games_in_room = select_one_from_db(
         "SELECT number_of_games FROM rooms WHERE uid=:room_id",
@@ -316,6 +316,28 @@ def move_to_next_player(room_id):
         return game, False
 
 
+def populate_players_to_whom_apply_effect(game: dict, effect: dict):
+    players_to_whom_apply = []
+    for category in effect["payload"]["categories_of_players"]:
+        if category == "all":
+            players_to_whom_apply.extend(game["players"])
+            break
+        elif category == "random_player":
+            players_to_whom_apply.extend(random.choice(game["players"]))
+        elif category == "others":
+            others = [
+                player
+                for player in game["players"]
+                if player not in game["team"] and player != game["leader"]
+            ]
+            players_to_whom_apply.extend(others)
+        else:
+            players_to_whom_apply.extend(game[category])
+
+    effect["payload"]["players"].extend(players_to_whom_apply)
+    return effect
+
+
 def implement_project_result(game, room_id):
     # Check whether team succeeded or failed in ended round
     points_to_succeed = sum(
@@ -329,11 +351,7 @@ def implement_project_result(game, room_id):
         effect = card["on_success" if is_success else "on_failure"]
         if effect:
             effect = json.loads(effect)
-            if effect["type"] == "change_player_points":
-                effect["payload"]["players"].extend(game["team_selected_by_leader"])
-            elif effect["type"] == "leadership_ban_next_time":
-                effect["payload"]["player"] = game["leader"]
-
+            effect = populate_players_to_whom_apply_effect(game, effect)
             game["effects_to_apply"].append(effect)
 
     store_room_game(room_id, game)
@@ -358,7 +376,7 @@ def start_next_round(room_id, game):
         ]
         game["cards_on_table"] = new_cards_on_table
         game["cards_selected_by_leader"] = []
-        game["team_selected_by_leader"] = []
+        game["team"] = []
 
         game["players_order_in_round"] = players_order_in_new_round
         game["players_to_move"] = players_order_in_new_round
@@ -398,9 +416,7 @@ def handle_make_project_deposit(data):
                 {"room_id": data["room_id"]},
             )
             rating = define_rating(game)
-            emit(
-                "game_ended", {"rating": rating}, to=data["room_id"]
-            )
+            emit("game_ended", {"rating": rating}, to=data["room_id"])
         else:
             store_room_game(room_id, game)
             emit("round_started", {"game": game}, to=data["room_id"])
@@ -431,8 +447,8 @@ def handle_select_team_for_round(data):
     )
     # Check whether leader selected appropriate number of players
     if min_players_in_team <= len(data["selected_players"]) <= max_players_in_team:
-        game["team_selected_by_leader"] = data["selected_players"]
-        game["players_to_move"] = [""] + game["team_selected_by_leader"]
+        game["team"] = data["selected_players"]
+        game["players_to_move"] = [""] + game["team"]
     else:
         # TODO
         raise

@@ -76,8 +76,7 @@
         </ul>
 
         <button :disabled="players.length < config.MIN_PLAYERS || players.length > config.MAX_PLAYERS"
-                v-if="player.is_owner"
-                @click="startGame">Начать игру</button>
+            v-if="player.is_owner" @click="startGame">Начать игру</button>
 
         <details v-if="player.is_owner">
             <summary>Настроить</summary>
@@ -168,7 +167,8 @@
 
                             <div v-if="effect.type">
                                 <div><small>${ condition == 'on_success' ? 'При успехе' : 'При провале' }$</small></div>
-                                <div v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['leader'] === true">
+                                <div
+                                    v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['leader'] === true">
                                     <div v-if="effect.type == 'change_player_points'">
                                         <div>
                                             Каждому участнику
@@ -181,7 +181,8 @@
                                     </div>
                                 </div>
 
-                                <div v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['leader'] === false">
+                                <div
+                                    v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['leader'] === false">
                                     <p>Эффект скрыт</p>
                                 </div>
                             </div>
@@ -206,7 +207,8 @@
 
                             <div v-if="effect.type">
                                 <div><small>${ condition == 'on_success' ? 'При успехе' : 'При провале' }$</small></div>
-                                <div v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['players'] === true">
+                                <div
+                                    v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['players'] === true">
                                     <div v-if="effect.type == 'change_player_points'">
                                         <div>
                                             Каждому участнику
@@ -219,7 +221,8 @@
                                     </div>
                                 </div>
 
-                                <div v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['players'] === false">
+                                <div
+                                    v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['players'] === false">
                                     Эффект скрыт
                                 </div>
                             </div>
@@ -241,7 +244,8 @@
 
                     <div v-if="effect.type">
                         <div><small>${ condition == 'on_success' ? 'При успехе' : 'При провале' }$</small></div>
-                        <div v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure'][isLeader() ? 'leader' : 'players'] === true">
+                        <div
+                            v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure'][isLeader() ? 'leader' : 'players'] === true">
                             <div v-if="effect.type == 'change_player_points'">
                                 <div>
                                     Каждому участнику
@@ -253,7 +257,8 @@
                                 </div>
                             </div>
                         </div>
-                        <div v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure'][isLeader() ? 'leader' : 'players'] === false">
+                        <div
+                            v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure'][isLeader() ? 'leader' : 'players'] === false">
                             Эффект скрыт
                         </div>
                     </div>
@@ -275,9 +280,8 @@
             <li v-for="playerName in game.players">
                 <label>
                     <input type="checkbox"
-                           :disabled="(selectedProjectTeamMembers.length >= projectTeamMaxMembers && !selectedProjectTeamMembers.includes(playerName)) || game.leader === playerName"
-                           v-model="projectTeamMembersSelection[playerName]"
-                           v-if="isLeader() && roundStage === 1">
+                        :disabled="(selectedProjectTeamMembers.length >= projectTeamMaxMembers && !selectedProjectTeamMembers.includes(playerName)) || game.leader === playerName"
+                        v-model="projectTeamMembersSelection[playerName]" v-if="isLeader() && roundStage === 1">
                     ${ playerName }$ <span v-if="playerName == game.leader">&#128081;</span>
                 </label>
             </li>
@@ -288,7 +292,7 @@
         </div>
 
         <div v-if="roundStage === 2">
-            Выбрана команда ${ game.team_selected_by_leader.join(', ') }$
+            Выбрана команда ${ game.team.join(', ') }$
         </div>
         <div v-if="roundStage === 2 && isPlayerProjectParticipant() && isActivePlayer()">
             <label>Выберите, сколько вложить в проект: ${ playerProjectBid }$</label>
@@ -359,14 +363,14 @@
                         rounds: 3,
                         initialPlayerPoints: 10,
                         cardEffectVisibility: {
-                          'onSuccess': {
-                            'leader': true,
-                            'players': true
-                          },
-                          'onFailure': {
-                            'leader': true,
-                            'players': true
-                          }
+                            'onSuccess': {
+                                'leader': true,
+                                'players': true
+                            },
+                            'onFailure': {
+                                'leader': true,
+                                'players': true
+                            }
                         }
                     }),
                     cardDeck: ref([
@@ -375,8 +379,8 @@
                             points_to_succeed: 20,
                             min_team: 1,
                             max_team: 2,
-                            on_success: '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}',
-                            on_failure: '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": -15, "players": []}}'
+                            on_success: '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "categories_of_players": ["leader", "team"], "points": 10, "players": []}}',
+                            on_failure: '{"type": "change_player_points", "payload": {"rounds_to_apply": 2, "categories_of_players": ["leader"], "points": -3, "players": []}}',
                         }
                     ])
                 }
@@ -387,7 +391,7 @@
                 },
                 roundStage() {
                     // project developing
-                    if (this.game.team_selected_by_leader && this.game.team_selected_by_leader.length > 0) {
+                    if (this.game.team && this.game.team.length > 0) {
                         return 2
                     }
 
@@ -418,7 +422,7 @@
                     return effect ? JSON.parse(effect) : {}
                 },
                 isPlayerProjectParticipant() {
-                    return this.roundStage === 2 && this.game.team_selected_by_leader.includes(this.playerName);
+                    return this.roundStage === 2 && this.game.team.includes(this.playerName);
                 },
                 isActivePlayer() {
                     return this.playerName === this.game.active_player
