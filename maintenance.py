@@ -70,4 +70,20 @@ effects = [
             "cancel": "all_effects",  # ['all_effects','positive_effects','negative_effects']
         },
     },
+    {
+        "name": "give_overpayment",
+        "type": "positive",
+        "payload": {
+            "categories_of_players": ["leader"],
+            "players": [],
+        },
+    },
+    {
+        "name": "take_away_underpayment",
+        "type": "negative",
+        "payload": {
+            "categories_of_players": ["leader"],
+            "players": [],
+        },
+    },
 ]
