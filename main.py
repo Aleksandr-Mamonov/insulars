@@ -108,13 +108,70 @@ def rotate_players_order_in_round(game: dict):
     return game
 
 
+def cancel_effects(cancel_effect: dict, effects: list):
+    """
+    Args:
+        cancel_effect: effect with name "cancel_effects"
+        effects: list of all current effects in game
+    """
+
+    cancel_type = cancel_effect["payload"]["cancel"]
+    if (
+        cancel_effect["payload"]["categories_of_players"] == ["all"]
+        and cancel_type == "all_effects"
+    ):
+        effects.clear()
+        return effects
+
+    effects.remove(cancel_effect)
+    # 1. cancel all effects for what players?
+    cancel_effects_for_players = cancel_effect["payload"]["players"]
+    print(f"cancel effects for players: {cancel_effects_for_players}")
+    print(f"cancel_type: {cancel_type}")
+    print(f"effects before: {effects}")
+    print(f"len(effects) initially: {len(effects)}")
+    # 2. Iterate over all effects except i-th and see whether these players are present in payload['players'] of each effect
+    for eff in effects[:]:
+        payload = eff["payload"]
+        if cancel_type == "positive_effects":
+            if eff["type"] == "positive":
+                pass
+            else:
+                print("continue positive")
+                continue
+        elif cancel_type == "negative_effects":
+            if eff["type"] == "negative":
+                pass
+            else:
+                print("continue negative")
+                continue
+        else:  # cancel all effects
+            pass
+        payload["players"] = [
+            player
+            for player in payload["players"]
+            if player not in cancel_effects_for_players
+        ]
+        print(f'payload[players]: {payload["players"]}')
+        if len(payload["players"]) == 0:
+            effects.remove(eff)
+        else:
+            eff["payload"] = payload
+        print(f"len(effects): {len(effects)}")
+
+    print(f"remained effects: {effects}")
+    return effects
+
+
 def apply_effects(game: dict, effects: list, room_id) -> dict:
     """Get game from db, apply effects, return game.
     Apply effects after round setup.
     """
-    for i, effect in enumerate(effects):
+    if len(effects) > 0 and effects[0]["name"] == "cancel_effects":
+        effects = cancel_effects(cancel_effect=effects[0], effects=effects)
+    for i, effect in enumerate(effects[:]):
         payload = effect["payload"]
-        if effect["type"] == "change_player_points":
+        if effect["name"] == "change_player_points":
             for player in payload["players"]:
                 game = change_player_points(
                     room_id=room_id, player_name=player, points=payload["points"]
@@ -122,14 +179,14 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
             effect["payload"]["rounds_to_apply"] -= 1
             if payload["rounds_to_apply"] <= 0:
                 effects.pop(i)
-        elif effect["type"] == "leadership_ban_next_time":
-            if game["leader"] == payload["player"]:
+        elif effect["name"] == "leadership_ban_next_time":
+            if game["leader"] == payload["players"][0]:
                 game = rotate_players_order_in_round(game)
                 effects.pop(i)
-        elif effect["type"] == "cards_selection_ban_next_time":
+        elif effect["name"] == "cards_selection_ban_next_time":
             # TODO
             pass
-        elif effect["type"] == "team_selection_ban_next_time":
+        elif effect["name"] == "team_selection_ban_next_time":
             # TODO
             pass
 
@@ -352,7 +409,10 @@ def implement_project_result(game, room_id):
         if effect:
             effect = json.loads(effect)
             effect = populate_players_to_whom_apply_effect(game, effect)
-            game["effects_to_apply"].append(effect)
+            if effect["name"] == "cancel_effects":
+                game["effects_to_apply"] = [effect] + game["effects_to_apply"]
+            else:
+                game["effects_to_apply"].append(effect)
 
     store_room_game(room_id, game)
     return is_success

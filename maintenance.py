@@ -34,7 +34,7 @@ def init_db():
     # on_success/on_failure['payload']['categories_of_players'] = ['all', 'leader', 'team', 'others', 'random_player']
     cur.execute(
         """INSERT INTO cards VALUES
-        ('Station', 20, 1, 2, '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "categories_of_players": ["leader", "team"], "points": 10, "players": []}}', '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": -5, "players": []}}')
+        ('Station', 20, 1, 2, '{"name": "change_player_points", "type": "positive", "payload": {"rounds_to_apply": 1, "categories_of_players": ["leader", "team"], "points": 10, "players": []}}', '{"name": "change_player_points", "type": "negative", "payload": {"rounds_to_apply": 2, "categories_of_players": ["leader", "team"], "points": -5, "players": []}}')
     """
     )
     con.commit()
@@ -42,3 +42,32 @@ def init_db():
 
 if __name__ == "__main__":
     init_db()
+
+effects = [
+    {
+        "name": "change_player_points",
+        "type": "positive",
+        "payload": {
+            "categories_of_players": ["leader", "team"],
+            "players": [],
+            "rounds_to_apply": 1,
+            "points": 10,
+        },
+    },
+    {
+        "name": "leadership_ban_next_time",
+        "type": "negative",
+        "payload": {
+            "categories_of_players": ["leader"],
+            "players": [],
+        },
+    },
+    {
+        "name": "cancel_effects",
+        "payload": {
+            "categories_of_players": ["all"],
+            "players": [],
+            "cancel": "all_effects",  # ['all_effects','positive_effects','negative_effects']
+        },
+    },
+]
