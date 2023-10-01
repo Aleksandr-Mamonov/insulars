@@ -124,26 +124,18 @@ def cancel_effects(cancel_effect: dict, effects: list):
         return effects
 
     effects.remove(cancel_effect)
-    # 1. cancel all effects for what players?
     cancel_effects_for_players = cancel_effect["payload"]["players"]
-    print(f"cancel effects for players: {cancel_effects_for_players}")
-    print(f"cancel_type: {cancel_type}")
-    print(f"effects before: {effects}")
-    print(f"len(effects) initially: {len(effects)}")
-    # 2. Iterate over all effects except i-th and see whether these players are present in payload['players'] of each effect
     for eff in effects[:]:
         payload = eff["payload"]
         if cancel_type == "positive_effects":
             if eff["type"] == "positive":
                 pass
             else:
-                print("continue positive")
                 continue
         elif cancel_type == "negative_effects":
             if eff["type"] == "negative":
                 pass
             else:
-                print("continue negative")
                 continue
         else:  # cancel all effects
             pass
@@ -152,14 +144,11 @@ def cancel_effects(cancel_effect: dict, effects: list):
             for player in payload["players"]
             if player not in cancel_effects_for_players
         ]
-        print(f'payload[players]: {payload["players"]}')
         if len(payload["players"]) == 0:
             effects.remove(eff)
         else:
             eff["payload"] = payload
-        print(f"len(effects): {len(effects)}")
 
-    print(f"remained effects: {effects}")
     return effects
 
 
@@ -169,19 +158,43 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
     """
     if len(effects) > 0 and effects[0]["name"] == "cancel_effects":
         effects = cancel_effects(cancel_effect=effects[0], effects=effects)
+
     for i, effect in enumerate(effects[:]):
         payload = effect["payload"]
+        players = payload["players"]
         if effect["name"] == "change_player_points":
-            for player in payload["players"]:
+            for player in players:
                 game = change_player_points(
                     room_id=room_id, player_name=player, points=payload["points"]
                 )
-            effect["payload"]["rounds_to_apply"] -= 1
+            payload["rounds_to_apply"] -= 1
             if payload["rounds_to_apply"] <= 0:
                 effects.pop(i)
         elif effect["name"] == "leadership_ban_next_time":
-            if game["leader"] == payload["players"][0]:
+            if game["leader"] == players[0]:
                 game = rotate_players_order_in_round(game)
+                effects.pop(i)
+        elif effect["name"] == "give_overpayment":
+            overpayment = game["round_delta"]
+            if overpayment > 0:
+                points_to_each_player = overpayment // len(players)
+                for player in players:
+                    game = change_player_points(
+                        room_id=room_id,
+                        player_name=player,
+                        points=points_to_each_player,
+                    )
+                effects.pop(i)
+        elif effect["name"] == "take_away_underpayment":
+            underpayment = game["round_delta"]
+            if underpayment < 0:
+                points_from_each_player = underpayment // len(players)
+                for player in players:
+                    game = change_player_points(
+                        room_id=room_id,
+                        player_name=player,
+                        points=points_from_each_player,
+                    )
                 effects.pop(i)
         elif effect["name"] == "cards_selection_ban_next_time":
             # TODO
@@ -403,7 +416,7 @@ def implement_project_result(game, room_id):
     points_collected_by_team = game["round_common_account_points"]
 
     is_success = points_collected_by_team >= points_to_succeed
-
+    game["round_delta"] = points_collected_by_team - points_to_succeed
     for card in game["cards_selected_by_leader"]:
         effect = card["on_success" if is_success else "on_failure"]
         if effect:
