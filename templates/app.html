@@ -142,8 +142,8 @@
             <button @click="addNewCardToGameDeck()">Add card</button>
 
             <h5>Effect samples</h5>
-            <pre>{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}</pre>
-            <pre>{"type": "leadership_ban_next_time", "payload": {"player": null}}</pre>
+            <pre>{"name": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}</pre>
+            <pre>{"name": "leadership_ban_next_time", "payload": {"player": null}}</pre>
         </details>
     </div>
 
@@ -165,11 +165,11 @@
                             :set="effect = parseCardEffect(card[condition])"
                             :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
 
-                            <div v-if="effect.type">
+                            <div v-if="effect.name">
                                 <div><small>${ condition == 'on_success' ? 'При успехе' : 'При провале' }$</small></div>
                                 <div
                                     v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['leader'] === true">
-                                    <div v-if="effect.type == 'change_player_points'">
+                                    <div v-if="effect.name == 'change_player_points'">
                                         <div>
                                             Каждому участнику
                                             <span>&#129689;&nbsp;<span
@@ -205,11 +205,11 @@
                             :set="effect = parseCardEffect(card[condition])"
                             :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
 
-                            <div v-if="effect.type">
+                            <div v-if="effect.name">
                                 <div><small>${ condition == 'on_success' ? 'При успехе' : 'При провале' }$</small></div>
                                 <div
                                     v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['players'] === true">
-                                    <div v-if="effect.type == 'change_player_points'">
+                                    <div v-if="effect.name == 'change_player_points'">
                                         <div>
                                             Каждому участнику
                                             <span>&#129689;&nbsp;<span
@@ -242,11 +242,11 @@
                     :set="effect = parseCardEffect(card[condition])"
                     :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
 
-                    <div v-if="effect.type">
+                    <div v-if="effect.name">
                         <div><small>${ condition == 'on_success' ? 'При успехе' : 'При провале' }$</small></div>
                         <div
                             v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure'][isLeader() ? 'leader' : 'players'] === true">
-                            <div v-if="effect.type == 'change_player_points'">
+                            <div v-if="effect.name == 'change_player_points'">
                                 <div>
                                     Каждому участнику
                                     <span>&#129689;&nbsp;<span
@@ -319,7 +319,7 @@
             Действующие эффекты:
             <ul>
                 <li v-for="effect in game.effects_to_apply">
-                    <span v-if="effect.type == 'change_player_points'">
+                    <span v-if="effect.name == 'change_player_points'">
                         <span>&#129689;&nbsp;<span
                                 v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
                         <span>
@@ -360,7 +360,7 @@
                     roundResults: ref(null),
                     finalRating: ref(null),
                     gameConfig: ref({
-                        rounds: 3,
+                        rounds: 10,
                         initialPlayerPoints: 10,
                         cardEffectVisibility: {
                             'onSuccess': {
@@ -376,11 +376,19 @@
                     cardDeck: ref([
                         {
                             name: 'Station',
-                            points_to_succeed: 20,
+                            points_to_succeed: 10,
                             min_team: 1,
                             max_team: 2,
-                            on_success: '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "categories_of_players": ["leader", "team"], "points": 10, "players": []}}',
-                            on_failure: '{"type": "change_player_points", "payload": {"rounds_to_apply": 2, "categories_of_players": ["leader"], "points": -3, "players": []}}',
+                            on_success: '{"name": "change_player_points", "type": "positive", "payload": {"rounds_to_apply": 7, "categories_of_players": ["leader", "team"], "points": 10, "players": []}}',
+                            on_failure: '{"name": "change_player_points", "type": "negative", "payload": {"rounds_to_apply": 7, "categories_of_players": ["leader"], "points": -3, "players": []}}',
+                        },
+                        {
+                            name: 'Hospital',
+                            points_to_succeed: 5,
+                            min_team: 1,
+                            max_team: 2,
+                            on_success: '{"name": "cancel_effects", "payload": {"categories_of_players": ["all"], "players": [], "cancel": "all_effects"}}',
+                            on_failure: ''
                         }
                     ])
                 }
@@ -439,7 +447,7 @@
                         points_to_succeed: 20,
                         min_team: 1,
                         max_team: 2,
-                        on_success: '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}',
+                        on_success: '{"name": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}',
                         on_failure: ''
                     })
                 },
