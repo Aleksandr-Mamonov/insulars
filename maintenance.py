@@ -117,28 +117,32 @@ cards = [
         "min_team": 2,
         "max_team": 2,
         "on_success": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "rounds_to_apply": 1,
-                    "categories_of_players": ["team"],
-                    "points": 15,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "positive",
+                    "payload": {
+                        "rounds_to_apply": 1,
+                        "categories_of_players": ["team"],
+                        "points": 15,
+                        "players": [],
+                    },
+                }
+            ]
         ),
         "on_failure": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 1,
-                    "categories_of_players": ["team"],
-                    "points": -3,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "negative",
+                    "payload": {
+                        "rounds_to_apply": 1,
+                        "categories_of_players": ["team"],
+                        "points": -3,
+                        "players": [],
+                    },
+                }
+            ]
         ),
     },
     {
@@ -147,28 +151,32 @@ cards = [
         "min_team": 2,
         "max_team": 2,
         "on_success": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "rounds_to_apply": 2,
-                    "categories_of_players": ["team"],
-                    "points": 8,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "positive",
+                    "payload": {
+                        "rounds_to_apply": 2,
+                        "categories_of_players": ["team"],
+                        "points": 8,
+                        "players": [],
+                    },
+                }
+            ]
         ),
         "on_failure": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 2,
-                    "categories_of_players": ["team"],
-                    "points": -2,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "negative",
+                    "payload": {
+                        "rounds_to_apply": 2,
+                        "categories_of_players": ["team"],
+                        "points": -2,
+                        "players": [],
+                    },
+                }
+            ]
         ),
     },
     {
@@ -177,28 +185,32 @@ cards = [
         "min_team": 2,
         "max_team": 2,
         "on_success": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "rounds_to_apply": 3,
-                    "categories_of_players": ["team"],
-                    "points": 6,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "positive",
+                    "payload": {
+                        "rounds_to_apply": 3,
+                        "categories_of_players": ["team"],
+                        "points": 6,
+                        "players": [],
+                    },
+                }
+            ]
         ),
         "on_failure": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 3,
-                    "categories_of_players": ["team"],
-                    "points": -1,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "negative",
+                    "payload": {
+                        "rounds_to_apply": 3,
+                        "categories_of_players": ["team"],
+                        "points": -1,
+                        "players": [],
+                    },
+                }
+            ]
         ),
     },
     {
@@ -207,28 +219,32 @@ cards = [
         "min_team": 2,
         "max_team": 2,
         "on_success": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "rounds_to_apply": 4,
-                    "categories_of_players": ["team"],
-                    "points": 5,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "positive",
+                    "payload": {
+                        "rounds_to_apply": 4,
+                        "categories_of_players": ["team"],
+                        "points": 5,
+                        "players": [],
+                    },
+                }
+            ]
         ),
         "on_failure": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 4,
-                    "categories_of_players": ["team"],
-                    "points": -1,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "negative",
+                    "payload": {
+                        "rounds_to_apply": 4,
+                        "categories_of_players": ["team"],
+                        "points": -1,
+                        "players": [],
+                    },
+                }
+            ]
         ),
     },
     {
@@ -237,28 +253,32 @@ cards = [
         "min_team": 2,
         "max_team": 2,
         "on_success": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "rounds_to_apply": 5,
-                    "categories_of_players": ["team"],
-                    "points": 5,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "positive",
+                    "payload": {
+                        "rounds_to_apply": 5,
+                        "categories_of_players": ["team"],
+                        "points": 5,
+                        "players": [],
+                    },
+                }
+            ]
         ),
         "on_failure": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 5,
-                    "categories_of_players": ["team"],
-                    "points": -1,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "negative",
+                    "payload": {
+                        "rounds_to_apply": 5,
+                        "categories_of_players": ["team"],
+                        "points": -1,
+                        "players": [],
+                    },
+                }
+            ]
         ),
     },
     {
@@ -267,28 +287,32 @@ cards = [
         "min_team": 2,
         "max_team": 2,
         "on_success": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "rounds_to_apply": 1,
-                    "categories_of_players": ["team"],
-                    "points": 25,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "positive",
+                    "payload": {
+                        "rounds_to_apply": 1,
+                        "categories_of_players": ["team"],
+                        "points": 25,
+                        "players": [],
+                    },
+                }
+            ]
         ),
         "on_failure": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 1,
-                    "categories_of_players": ["team"],
-                    "points": -3,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "negative",
+                    "payload": {
+                        "rounds_to_apply": 1,
+                        "categories_of_players": ["team"],
+                        "points": -3,
+                        "players": [],
+                    },
+                }
+            ]
         ),
     },
     {
@@ -297,28 +321,32 @@ cards = [
         "min_team": 2,
         "max_team": 2,
         "on_success": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "rounds_to_apply": 2,
-                    "categories_of_players": ["team"],
-                    "points": 13,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "positive",
+                    "payload": {
+                        "rounds_to_apply": 2,
+                        "categories_of_players": ["team"],
+                        "points": 13,
+                        "players": [],
+                    },
+                }
+            ]
         ),
         "on_failure": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 2,
-                    "categories_of_players": ["team"],
-                    "points": -2,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "negative",
+                    "payload": {
+                        "rounds_to_apply": 2,
+                        "categories_of_players": ["team"],
+                        "points": -2,
+                        "players": [],
+                    },
+                }
+            ]
         ),
     },
     {
@@ -327,28 +355,32 @@ cards = [
         "min_team": 2,
         "max_team": 2,
         "on_success": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "rounds_to_apply": 3,
-                    "categories_of_players": ["team"],
-                    "points": 10,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "positive",
+                    "payload": {
+                        "rounds_to_apply": 3,
+                        "categories_of_players": ["team"],
+                        "points": 10,
+                        "players": [],
+                    },
+                }
+            ]
         ),
         "on_failure": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 3,
-                    "categories_of_players": ["team"],
-                    "points": -1,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "negative",
+                    "payload": {
+                        "rounds_to_apply": 3,
+                        "categories_of_players": ["team"],
+                        "points": -1,
+                        "players": [],
+                    },
+                }
+            ]
         ),
     },
     {
@@ -357,28 +389,32 @@ cards = [
         "min_team": 2,
         "max_team": 2,
         "on_success": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "rounds_to_apply": 4,
-                    "categories_of_players": ["team"],
-                    "points": 9,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "positive",
+                    "payload": {
+                        "rounds_to_apply": 4,
+                        "categories_of_players": ["team"],
+                        "points": 9,
+                        "players": [],
+                    },
+                }
+            ]
         ),
         "on_failure": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 4,
-                    "categories_of_players": ["team"],
-                    "points": -1,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "negative",
+                    "payload": {
+                        "rounds_to_apply": 4,
+                        "categories_of_players": ["team"],
+                        "points": -1,
+                        "players": [],
+                    },
+                }
+            ]
         ),
     },
     {
@@ -387,28 +423,32 @@ cards = [
         "min_team": 2,
         "max_team": 2,
         "on_success": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "rounds_to_apply": 5,
-                    "categories_of_players": ["team"],
-                    "points": 8,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "positive",
+                    "payload": {
+                        "rounds_to_apply": 5,
+                        "categories_of_players": ["team"],
+                        "points": 8,
+                        "players": [],
+                    },
+                }
+            ]
         ),
         "on_failure": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 5,
-                    "categories_of_players": ["team"],
-                    "points": -1,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "negative",
+                    "payload": {
+                        "rounds_to_apply": 5,
+                        "categories_of_players": ["team"],
+                        "points": -1,
+                        "players": [],
+                    },
+                }
+            ]
         ),
     },
     {
@@ -417,28 +457,32 @@ cards = [
         "min_team": 3,
         "max_team": 3,
         "on_success": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "rounds_to_apply": 1,
-                    "categories_of_players": ["team"],
-                    "points": 25,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "positive",
+                    "payload": {
+                        "rounds_to_apply": 1,
+                        "categories_of_players": ["team"],
+                        "points": 25,
+                        "players": [],
+                    },
+                }
+            ]
         ),
         "on_failure": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 1,
-                    "categories_of_players": ["team"],
-                    "points": -3,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "negative",
+                    "payload": {
+                        "rounds_to_apply": 1,
+                        "categories_of_players": ["team"],
+                        "points": -3,
+                        "players": [],
+                    },
+                }
+            ]
         ),
     },
     {
@@ -447,28 +491,32 @@ cards = [
         "min_team": 3,
         "max_team": 3,
         "on_success": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "rounds_to_apply": 2,
-                    "categories_of_players": ["team"],
-                    "points": 14,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "positive",
+                    "payload": {
+                        "rounds_to_apply": 2,
+                        "categories_of_players": ["team"],
+                        "points": 14,
+                        "players": [],
+                    },
+                }
+            ]
         ),
         "on_failure": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 2,
-                    "categories_of_players": ["team"],
-                    "points": -2,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "negative",
+                    "payload": {
+                        "rounds_to_apply": 2,
+                        "categories_of_players": ["team"],
+                        "points": -2,
+                        "players": [],
+                    },
+                }
+            ]
         ),
     },
     {
@@ -477,28 +525,32 @@ cards = [
         "min_team": 3,
         "max_team": 3,
         "on_success": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "rounds_to_apply": 3,
-                    "categories_of_players": ["team"],
-                    "points": 10,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "positive",
+                    "payload": {
+                        "rounds_to_apply": 3,
+                        "categories_of_players": ["team"],
+                        "points": 10,
+                        "players": [],
+                    },
+                }
+            ]
         ),
         "on_failure": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 3,
-                    "categories_of_players": ["team"],
-                    "points": -1,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "negative",
+                    "payload": {
+                        "rounds_to_apply": 3,
+                        "categories_of_players": ["team"],
+                        "points": -1,
+                        "players": [],
+                    },
+                }
+            ]
         ),
     },
     {
@@ -507,28 +559,32 @@ cards = [
         "min_team": 4,
         "max_team": 4,
         "on_success": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "rounds_to_apply": 1,
-                    "categories_of_players": ["team"],
-                    "points": 30,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "positive",
+                    "payload": {
+                        "rounds_to_apply": 1,
+                        "categories_of_players": ["team"],
+                        "points": 30,
+                        "players": [],
+                    },
+                }
+            ]
         ),
         "on_failure": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 1,
-                    "categories_of_players": ["team"],
-                    "points": -3,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "negative",
+                    "payload": {
+                        "rounds_to_apply": 1,
+                        "categories_of_players": ["team"],
+                        "points": -3,
+                        "players": [],
+                    },
+                }
+            ]
         ),
     },
     {
@@ -537,28 +593,32 @@ cards = [
         "min_team": 4,
         "max_team": 4,
         "on_success": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "rounds_to_apply": 2,
-                    "categories_of_players": ["team"],
-                    "points": 17,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "positive",
+                    "payload": {
+                        "rounds_to_apply": 2,
+                        "categories_of_players": ["team"],
+                        "points": 17,
+                        "players": [],
+                    },
+                }
+            ]
         ),
         "on_failure": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 2,
-                    "categories_of_players": ["team"],
-                    "points": -2,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "negative",
+                    "payload": {
+                        "rounds_to_apply": 2,
+                        "categories_of_players": ["team"],
+                        "points": -2,
+                        "players": [],
+                    },
+                }
+            ]
         ),
     },
     {
@@ -567,28 +627,32 @@ cards = [
         "min_team": 4,
         "max_team": 4,
         "on_success": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "rounds_to_apply": 3,
-                    "categories_of_players": ["team"],
-                    "points": 13,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "positive",
+                    "payload": {
+                        "rounds_to_apply": 3,
+                        "categories_of_players": ["team"],
+                        "points": 13,
+                        "players": [],
+                    },
+                }
+            ]
         ),
         "on_failure": json.dumps(
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 3,
-                    "categories_of_players": ["team"],
-                    "points": -1,
-                    "players": [],
-                },
-            }
+            [
+                {
+                    "name": "change_player_points",
+                    "type": "negative",
+                    "payload": {
+                        "rounds_to_apply": 3,
+                        "categories_of_players": ["team"],
+                        "points": -1,
+                        "players": [],
+                    },
+                }
+            ]
         ),
     },
 ]

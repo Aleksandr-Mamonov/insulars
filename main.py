@@ -418,14 +418,15 @@ def implement_project_result(game, room_id):
     is_success = points_collected_by_team >= points_to_succeed
     game["round_delta"] = points_collected_by_team - points_to_succeed
     for card in game["cards_selected_by_leader"]:
-        effect = card["on_success" if is_success else "on_failure"]
-        if effect:
-            effect = json.loads(effect)
-            effect = populate_players_to_whom_apply_effect(game, effect)
-            if effect["name"] == "cancel_effects":
-                game["effects_to_apply"] = [effect] + game["effects_to_apply"]
-            else:
-                game["effects_to_apply"].append(effect)
+        # print(card)
+        effects = json.loads(card["on_success" if is_success else "on_failure"])
+        for effect in effects:
+            if effect:
+                effect = populate_players_to_whom_apply_effect(game, effect)
+                if effect["name"] == "cancel_effects":
+                    game["effects_to_apply"] = [effect] + game["effects_to_apply"]
+                else:
+                    game["effects_to_apply"].append(effect)
 
     store_room_game(room_id, game)
     return is_success
