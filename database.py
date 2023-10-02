@@ -42,3 +42,13 @@ def write_to_db(sql: str, params: dict):
     """Executes a SQL query and commit changes to db."""
     result = execute_sql_query(sql, params)
     result["connection"].commit()
+
+
+def strip_whitespaces_from_dict_values(d: dict) -> dict:
+    updated_dict = {}
+    for k, v in d.items():
+        if isinstance(v, str):
+            updated_dict[k] = "".join(v.split())
+            continue
+        updated_dict[k] = v
+    return updated_dict
