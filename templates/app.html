@@ -455,7 +455,7 @@
                     roundResults: ref(null),
                     finalRating: ref(null),
                     gameConfig: ref({
-                        rounds: 3,
+                        rounds: 10,
                         initialPlayerPoints: 10,
                         cardEffectVisibility: {
                             'onSuccess': {
@@ -471,11 +471,19 @@
                     cardDeck: ref([
                         {
                             name: 'Station',
-                            points_to_succeed: 20,
+                            points_to_succeed: 10,
                             min_team: 1,
                             max_team: 2,
-                            on_success: '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "categories_of_players": ["leader", "team"], "points": 10, "players": []}}',
-                            on_failure: '{"type": "change_player_points", "payload": {"rounds_to_apply": 2, "categories_of_players": ["leader"], "points": -3, "players": []}}',
+                            on_success: '[{"name": "change_player_points", "type": "positive", "payload": {"rounds_to_apply": 7, "categories_of_players": ["leader", "team"], "points": 10, "players": []}}, {"name": "give_overpayment", "type": "positive", "payload": {"categories_of_players": ["leader"], "players": []}}]',
+                            on_failure: '[{"name": "change_player_points", "type": "negative", "payload": {"rounds_to_apply": 7, "categories_of_players": ["leader"], "points": -3, "players": []}}]',
+                        },
+                        {
+                            name: 'Hospital',
+                            points_to_succeed: 5,
+                            min_team: 1,
+                            max_team: 2,
+                            on_success: '[{"name": "cancel_effects", "payload": {"categories_of_players": ["all"], "players": [], "cancel": "all_effects"}}]',
+                            on_failure: '[]'
                         }
                     ])
                 }
@@ -539,7 +547,7 @@
                         points_to_succeed: 20,
                         min_team: 1,
                         max_team: 2,
-                        on_success: '{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}',
+                        on_success: '{"name": "change_player_points", "type": "positive", "payload": {"rounds_to_apply": 7, "categories_of_players": ["leader", "team"], "points": 10, "players": []}}',
                         on_failure: ''
                     })
                 },

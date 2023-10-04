@@ -108,28 +108,98 @@ def rotate_players_order_in_round(game: dict):
     return game
 
 
+def cancel_effects(cancel_effect: dict, effects: list):
+    """
+    Args:
+        cancel_effect: effect with name "cancel_effects"
+        effects: list of all current effects in game
+    """
+
+    cancel_type = cancel_effect["payload"]["cancel"]
+    if (
+        cancel_effect["payload"]["categories_of_players"] == ["all"]
+        and cancel_type == "all_effects"
+    ):
+        effects.clear()
+        return effects
+
+    effects.remove(cancel_effect)
+    cancel_effects_for_players = cancel_effect["payload"]["players"]
+    for eff in effects[:]:
+        payload = eff["payload"]
+        if cancel_type == "positive_effects":
+            if eff["type"] == "positive":
+                pass
+            else:
+                continue
+        elif cancel_type == "negative_effects":
+            if eff["type"] == "negative":
+                pass
+            else:
+                continue
+        else:  # cancel all effects
+            pass
+        payload["players"] = [
+            player
+            for player in payload["players"]
+            if player not in cancel_effects_for_players
+        ]
+        if len(payload["players"]) == 0:
+            effects.remove(eff)
+        else:
+            eff["payload"] = payload
+
+    return effects
+
+
 def apply_effects(game: dict, effects: list, room_id) -> dict:
     """Get game from db, apply effects, return game.
     Apply effects after round setup.
     """
-    for i, effect in enumerate(effects):
+    if len(effects) > 0 and effects[0]["name"] == "cancel_effects":
+        effects = cancel_effects(cancel_effect=effects[0], effects=effects)
+
+    for i, effect in enumerate(effects[:]):
         payload = effect["payload"]
-        if effect["type"] == "change_player_points":
-            for player in payload["players"]:
+        players = payload["players"]
+        if effect["name"] == "change_player_points":
+            for player in players:
                 game = change_player_points(
                     room_id=room_id, player_name=player, points=payload["points"]
                 )
-            effect["payload"]["rounds_to_apply"] -= 1
+            payload["rounds_to_apply"] -= 1
             if payload["rounds_to_apply"] <= 0:
                 effects.pop(i)
-        elif effect["type"] == "leadership_ban_next_time":
-            if game["leader"] == payload["player"]:
+        elif effect["name"] == "leadership_ban_next_time":
+            if game["leader"] == players[0]:
                 game = rotate_players_order_in_round(game)
                 effects.pop(i)
-        elif effect["type"] == "cards_selection_ban_next_time":
+        elif effect["name"] == "give_overpayment":
+            overpayment = game["round_delta"]
+            if overpayment > 0:
+                points_to_each_player = overpayment // len(players)
+                for player in players:
+                    game = change_player_points(
+                        room_id=room_id,
+                        player_name=player,
+                        points=points_to_each_player,
+                    )
+                effects.pop(i)
+        elif effect["name"] == "take_away_underpayment":
+            underpayment = game["round_delta"]
+            if underpayment < 0:
+                points_from_each_player = underpayment // len(players)
+                for player in players:
+                    game = change_player_points(
+                        room_id=room_id,
+                        player_name=player,
+                        points=points_from_each_player,
+                    )
+                effects.pop(i)
+        elif effect["name"] == "cards_selection_ban_next_time":
             # TODO
             pass
-        elif effect["type"] == "team_selection_ban_next_time":
+        elif effect["name"] == "team_selection_ban_next_time":
             # TODO
             pass
 
@@ -346,13 +416,17 @@ def implement_project_result(game, room_id):
     points_collected_by_team = game["round_common_account_points"]
 
     is_success = points_collected_by_team >= points_to_succeed
-
+    game["round_delta"] = points_collected_by_team - points_to_succeed
     for card in game["cards_selected_by_leader"]:
-        effect = card["on_success" if is_success else "on_failure"]
-        if effect:
-            effect = json.loads(effect)
-            effect = populate_players_to_whom_apply_effect(game, effect)
-            game["effects_to_apply"].append(effect)
+        # print(card)
+        effects = json.loads(card["on_success" if is_success else "on_failure"])
+        for effect in effects:
+            if effect:
+                effect = populate_players_to_whom_apply_effect(game, effect)
+                if effect["name"] == "cancel_effects":
+                    game["effects_to_apply"] = [effect] + game["effects_to_apply"]
+                else:
+                    game["effects_to_apply"].append(effect)
 
     store_room_game(room_id, game)
     return is_success
