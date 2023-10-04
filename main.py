@@ -391,7 +391,6 @@ def populate_players_to_whom_apply_effect(game: dict, effect: dict):
     for category in effect["payload"]["categories_of_players"]:
         if category == "all":
             players_to_whom_apply.extend(game["players"])
-            break
         elif category == "random_player":
             players_to_whom_apply.extend(random.choice(game["players"]))
         elif category == "others":
@@ -401,8 +400,12 @@ def populate_players_to_whom_apply_effect(game: dict, effect: dict):
                 if player not in game["team"] and player != game["leader"]
             ]
             players_to_whom_apply.extend(others)
+        elif category == 'leader':
+            players_to_whom_apply.extend([game['leader']])
+        elif category == 'team':
+            players_to_whom_apply.extend(game['team'])
         else:
-            players_to_whom_apply.extend(game[category])
+            raise RuntimeError('Unknown player category')
 
     effect["payload"]["players"].extend(players_to_whom_apply)
     return effect
