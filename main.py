@@ -459,6 +459,27 @@ def handle_select_team_for_round(data):
     emit("team_for_round_selected", {"game": game}, to=data["room_id"])
 
 
+@socketio.on("select_player_portrait")
+def handle_portrait_select(data):
+    """Portrait is selected by a player.
+    Data = {
+    "player_name": player_name,
+    "room_id": room_id,
+    "portrait_id": portrait_id,
+    }
+    """
+    room_id = data['room_id']
+
+    write_to_db(
+        "UPDATE room_players SET portrait_id=:portrait_id WHERE room_id=:room_id AND player_name=:player_name",
+        {"portrait_id": data['portrait_id'], 'room_id': room_id, 'player_name': data['player_name']},
+    )
+
+    emit("player_portrait_selected",
+         {"player_name": data['player_name'], "portrait_id": data['portrait_id']},
+         to=room_id)
+
+
 def define_rating(game: dict):
     """Returns rating of all players in the game and winner(s).
     If multiple players have the same max number of points, they all are winners.

@@ -7,7 +7,7 @@ def init_db():
     cur.execute(
         "CREATE TABLE IF NOT EXISTS rooms(uid, owner, game, number_of_games INTEGER DEFAULT 0)"
     )
-    cur.execute("CREATE TABLE IF NOT EXISTS room_players(room_id, player_name)")
+    cur.execute("CREATE TABLE IF NOT EXISTS room_players(room_id, player_name, portrait_id)")
     cur.execute(
         """CREATE TABLE IF NOT EXISTS cards (
         name UNIQUE,
