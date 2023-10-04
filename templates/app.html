@@ -2,6 +2,10 @@
 
 <head>
     <title>Game | {{ player_name }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"
@@ -13,7 +17,6 @@
             min-width: 250px;
             width: 250px;
             min-height: 300px;
-            border: 2px #bbb solid;
             display: inline-block;
             margin-left: 5px;
             text-align: center;
@@ -23,7 +26,6 @@
             min-width: 300px;
             width: 300px;
             min-height: 400px;
-            border: 2px #000 solid;
             display: inline-block;
             margin-left: 5px;
             text-align: center;
@@ -45,264 +47,71 @@
         .card-effect {}
 
         .card-effect-success {
-            background-color: #bff;
+            background-color: #7FFF00;
         }
 
         .card-effect-failure {
-            background-color: #fbf;
+            background-color: #DC143C;
+            color: #fff;
+        }
+
+        .portrait {
+            background: #FFEBCD;
+            background-size: contain;
+            background-repeat: no-repeat;
+            min-height: 150px;
+            max-height: 150px;
+            min-width: 150px;
+            max-width: 150px;
+        }
+
+        .portrait p {
+            overflow-wrap: break-word;
+        }
+
+        .portrait div span {
+            background-color: #fff;
+            opacity: 0.85;
+            font-size: 1rem;
+            color: #000;
+            border-radius:10%;
+        }
+
+        #portrait-options img {
+            width: 220px;
         }
     </style>
 </head>
 <!--todo - leader can not select himself for project team-->
 
-<body id="app">
-
-    <p><a href="/">Новая игра</a></p>
-    <h2>${playerName}$</h2>
-
-    <div v-if="finalRating !== null" class="overlay">
-        <h2>Игра окончена!</h2>
-        <div v-for="rank in finalRating">${ rank[0] }$ - &#129689; ${ rank[1] }$</div>
-
-        <button @click="finalRating = null; game = null">Закрыть</button>
-    </div>
-
-    <div id="lobby-layout" v-if="game === null">
-        <a href="/?room_id={{room_id}}">Пригласить другого игрока</a>
-        <h1>Лобби</h1>
-
-        <ul>
-            <li v-for="p in players">${p.player_name}$</li>
-        </ul>
-
-        <button :disabled="players.length < config.MIN_PLAYERS || players.length > config.MAX_PLAYERS"
-            v-if="player.is_owner" @click="startGame">Начать игру</button>
-
-        <details v-if="player.is_owner">
-            <summary>Настроить</summary>
-
-            <div>
-                <label>Number of rounds
-                    <input v-model="gameConfig.rounds" />
-                </label>
-            </div>
-            <div>
-                <label>Initial player points
-                    <input v-model="gameConfig.initialPlayerPoints" />
-                </label>
-            </div>
-            <h4>Card effect visibility</h4>
-            <div>
-                <p>On success effect</p>
-                <label>Leader
-                    <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onSuccess.leader" />
-                </label>
-                <label>Players
-                    <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onSuccess.players" />
-                </label>
-            </div>
-            <div>
-                <p>On failure effect</p>
-                <label>Leader
-                    <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onFailure.leader" />
-                </label>
-                <label>PLayers
-                    <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onFailure.players" />
-                </label>
-            </div>
-
-            <h4>Card deck</h4>
-            <div v-for="(card, idx) in cardDeck" style="padding: 10px; margin: 10px; background: lightgray">
-                <label>Name
-                    <input v-model="card.name" />
-                </label>
-                <label>Points to succeed
-                    <input v-model="card.points_to_succeed" />
-                </label>
-                <label>Min team
-                    <input v-model="card.min_team" />
-                </label>
-                <label>Max team
-                    <input v-model="card.max_team" />
-                </label>
-                <div>
-                    <label>On success
-                        <textarea rows=6 cols=70 v-model="card.on_success"></textarea>
-                    </label>
-                </div>
-                <div>
-                    <label>On failure
-                        <textarea rows=6 cols=70 v-model="card.on_failure"></textarea>
-                    </label>
+<body>
+    <div id="app">
+        <div class="container">
+            <div class="row py-2">
+                <div class="col">
+                    <p><a href="/">Новая игра</a></p>
                 </div>
 
-                <button @click="rmCardFromGameDeck(idx)" v-if="cardDeck.length > 1">Rm card</button>
-            </div>
-
-            <button @click="addNewCardToGameDeck()">Add card</button>
-
-            <h5>Effect samples</h5>
-            <pre>{"name": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}</pre>
-            <pre>{"name": "leadership_ban_next_time", "payload": {"player": null}}</pre>
-        </details>
-    </div>
-
-    <div id="game-layout" v-if="game !== null">
-        <h3>Очки: ${game.all_players_points[playerName]}$</h3>
-
-        <p>Раунд ${game.round}$, сейчас ходит ${ game.active_player }$</p>
-
-        <div v-if="game.cards_on_table && game.cards_on_table.length > 0">
-            <div v-if="isLeader()">
-                <div>
-                    <div class="card" v-for="card in game.cards_on_table" :key="card_id" @click="toggleCard(card)">
-
-                        <p>${ card.name }$</p>
-                        <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
-                        <p>Нужно собрать &#129689; ${ card.points_to_succeed }$</p>
-
-                        <div v-for="condition in ['on_success', 'on_failure']" class="card-effect"
-                            :set="effect = parseCardEffect(card[condition])"
-                            :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
-
-                            <div v-if="effect.name">
-                                <div><small>${ condition == 'on_success' ? 'При успехе' : 'При провале' }$</small></div>
-                                <div
-                                    v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['leader'] === true">
-                                    <div v-if="effect.name == 'change_player_points'">
-                                        <div>
-                                            Каждому участнику
-                                            <span>&#129689;&nbsp;<span
-                                                    v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
-                                            <span v-if="effect.payload.rounds_to_apply > 1">
-                                                &nbsp;/ &nbsp;&#8987;&nbsp;${ effect.payload.rounds_to_apply }$
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div
-                                    v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['leader'] === false">
-                                    <p>Эффект скрыт</p>
-                                </div>
-                            </div>
-
-                        </div>
-
-                        <p v-if="isCardSelected(card)">выбрана</p>
-                    </div>
+                <div class="col text-end">
+                    <span style="color: #fef;" v-if="game !== null" @click="debug = !debug">debug</span>
                 </div>
-                <button type="button" @click="submitCardsSelection()" :disabled="!selectedCards.length">Выбрать</button>
             </div>
-            <div v-if="!isLeader()">
-                <div>
-                    <div class="card" v-for="card in game.cards_on_table" :key="card_id">
-                        <p>${ card.name }$</p>
-                        <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
-                        <p>Нужно собрать &#129689; ${ card.points_to_succeed }$</p>
 
-                        <div v-for="condition in ['on_success', 'on_failure']" class="card-effect"
-                            :set="effect = parseCardEffect(card[condition])"
-                            :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
-
-                            <div v-if="effect.name">
-                                <div><small>${ condition == 'on_success' ? 'При успехе' : 'При провале' }$</small></div>
-                                <div
-                                    v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['players'] === true">
-                                    <div v-if="effect.name == 'change_player_points'">
-                                        <div>
-                                            Каждому участнику
-                                            <span>&#129689;&nbsp;<span
-                                                    v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
-                                            <span v-if="effect.payload.rounds_to_apply > 1">
-                                                &nbsp;/&nbsp;&#8987;&nbsp;${ effect.payload.rounds_to_apply }$
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div
-                                    v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure']['players'] === false">
-                                    Эффект скрыт
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+            <div class="row" v-if="debug === true">
+                <div class="col">
+                    <p>Common account: ${game.round_common_account_points}$ points</p>
+                    <pre>${ game }$</pre>
+                    <pre>Stage ${ roundStage }$</pre>
                 </div>
             </div>
         </div>
 
-        <div v-if="roundStage > 0">
-            <div class="card" v-for="card in game.cards_selected_by_leader" :key="card_id">
-                <p>${ card.name }$</p>
-                <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
-                <p>Нужно собрать &#129689; ${ card.points_to_succeed }$</p>
 
-                <div v-for="condition in ['on_success', 'on_failure']" class="card-effect"
-                    :set="effect = parseCardEffect(card[condition])"
-                    :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
+        <div v-if="finalRating !== null" class="overlay">
+            <h2>Игра окончена!</h2>
+            <div v-for="rank in finalRating">${ rank[0] }$ - &#129689; ${ rank[1] }$</div>
 
-                    <div v-if="effect.name">
-                        <div><small>${ condition == 'on_success' ? 'При успехе' : 'При провале' }$</small></div>
-                        <div
-                            v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure'][isLeader() ? 'leader' : 'players'] === true">
-                            <div v-if="effect.name == 'change_player_points'">
-                                <div>
-                                    Каждому участнику
-                                    <span>&#129689;&nbsp;<span
-                                            v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
-                                    <span v-if="effect.payload.rounds_to_apply > 1">
-                                        / &#8987;&nbsp;${ effect.payload.rounds_to_apply }$
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        <div
-                            v-if="game.card_effect_visibility[condition == 'on_success' ? 'onSuccess' : 'onFailure'][isLeader() ? 'leader' : 'players'] === false">
-                            Эффект скрыт
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-
-            <div v-if="roundStage === 1">
-                <p>Лидер выбирает команду... </p>
-            </div>
-        </div>
-
-        <template v-if="playerName == game.active_player">
-            <b>Ваш ход!</b>
-        </template>
-
-        <p>Игроки:</p>
-        <ul>
-            <li v-for="playerName in game.players">
-                <label>
-                    <input type="checkbox"
-                        :disabled="(selectedProjectTeamMembers.length >= projectTeamMaxMembers && !selectedProjectTeamMembers.includes(playerName)) || game.leader === playerName"
-                        v-model="projectTeamMembersSelection[playerName]" v-if="isLeader() && roundStage === 1">
-                    ${ playerName }$ <span v-if="playerName == game.leader">&#128081;</span>
-                </label>
-            </li>
-        </ul>
-        <div v-if="isLeader() && roundStage === 1">
-            <button type="button" @click="submitProjectTeamSelection()">
-                Подтвердить</button>
-        </div>
-
-        <div v-if="roundStage === 2">
-            Выбрана команда ${ game.team.join(', ') }$
-        </div>
-        <div v-if="roundStage === 2 && isPlayerProjectParticipant() && isActivePlayer()">
-            <label>Выберите, сколько вложить в проект: ${ playerProjectBid }$</label>
-            <input type="range" v-model="playerProjectBid" min="0" :max="game.all_players_points[playerName]" />
-
-            <button type="button" @click="makeProjectDeposit(playerProjectBid)">Подтвердить</button>
-        </div>
-
-        <div v-if="roundStage === 2 && (!isPlayerProjectParticipant() || !isActivePlayer())">
-            <p>Ждем результатов строительства</p>
+            <button @click="finalRating = null; game = null">Закрыть</button>
         </div>
 
         <div v-if="roundResults !== null" class="overlay">
@@ -315,40 +124,339 @@
             </div>
         </div>
 
-        <div v-if="game.effects_to_apply && game.effects_to_apply.length > 0">
-            Действующие эффекты:
-            <ul>
-                <li v-for="effect in game.effects_to_apply">
-                    <span v-if="effect.name == 'change_player_points'">
-                        <span>&#129689;&nbsp;<span
-                                v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
-                        <span>
-                            &nbsp;/&nbsp;&#8987;&nbsp;${ effect.payload.rounds_to_apply }$
-                        </span>
-                        <span> for ${ effect.payload.players.join(', ') }$</span>
-                    </span>
-                </li>
-            </ul>
+        <div id="lobby-layout" v-if="game === null" class="container">
+            <div class="row">
+                <div class="col">
+                    <h1>Лобби</h1>
+                    <a href="/?room_id={{room_id}}" target="_blank">Пригласить другого игрока</a>
+
+                    <!-- Player list -->
+                    <div class="row">
+                        <div class="col-12 mt-4">
+                            <p>Сейчас в комнате:</p>
+                        </div>
+
+                        <div class="col-auto"
+                             v-for="p in players">
+                            <div class="portrait p-2" :style="{'background-image': 'url(/static/portrait' + (playerPortraits[p.player_name] || 0) + '.jpg)'}">
+                                <div>
+                                    <p><span class="p-1"><strong>${ p.player_name }$</strong></span></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 my-3">
+                            <button type="button"
+                                    @click="showPortraitOptions = !showPortraitOptions"
+                                    class="btn btn-sm btn-outline-secondary">${ !showPortraitOptions ? 'Выбрать портрет' : 'Готово' }$</button>
+
+                            <div v-if="showPortraitOptions === true" id="portrait-options" class="mt-3">
+                                {% for i in range(4) %}
+                                    <div class="row">
+                                        <div class="col">
+                                        {% for j in range(4) %}
+                                            <img src="{{ url_for('static', filename='portrait' ~ ((i * 4) + 1 + j) ~ '.jpg') }}"
+                                                 class="border border-5"
+                                                 :class="{'border-info': portrait === {{ (i * 4) + 1 + j }}}"
+                                                 @click="selectPortrait({{ (i * 4) + 1 + j }})">
+                                        {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="col-12 my-3">
+                            <button :disabled="players.length < config.MIN_PLAYERS || players.length > config.MAX_PLAYERS"
+                                    v-if="player.is_owner"
+                                    class="btn btn-primary"
+                                    @click="startGame">Начать игру</button>
+                        </div>
+                    </div>
+
+                    <details v-if="player.is_owner">
+                        <summary>Настроить</summary>
+
+                        <div>
+                            <label>Number of rounds
+                                <input v-model="gameConfig.rounds" />
+                            </label>
+                        </div>
+                        <div>
+                            <label>Initial player points
+                                <input v-model="gameConfig.initialPlayerPoints" />
+                            </label>
+                        </div>
+                        <h4>Card effect visibility</h4>
+                        <div>
+                            <p>On success effect</p>
+                            <label>Leader
+                                <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onSuccess.leader" />
+                            </label>
+                            <label>Players
+                                <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onSuccess.players" />
+                            </label>
+                        </div>
+                        <div>
+                            <p>On failure effect</p>
+                            <label>Leader
+                                <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onFailure.leader" />
+                            </label>
+                            <label>PLayers
+                                <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onFailure.players" />
+                            </label>
+                        </div>
+
+                        <h4>Card deck</h4>
+                        <div v-for="(card, idx) in cardDeck" style="padding: 10px; margin: 10px; background: lightgray">
+                            <label>Name
+                                <input v-model="card.name" />
+                            </label>
+                            <label>Points to succeed
+                                <input v-model="card.points_to_succeed" />
+                            </label>
+                            <label>Min team
+                                <input v-model="card.min_team" />
+                            </label>
+                            <label>Max team
+                                <input v-model="card.max_team" />
+                            </label>
+                            <div>
+                                <label>On success
+                                    <textarea rows=6 cols=70 v-model="card.on_success"></textarea>
+                                </label>
+                            </div>
+                            <div>
+                                <label>On failure
+                                    <textarea rows=6 cols=70 v-model="card.on_failure"></textarea>
+                                </label>
+                            </div>
+
+                            <button @click="rmCardFromGameDeck(idx)" v-if="cardDeck.length > 1">Rm card</button>
+                        </div>
+
+                        <button @click="addNewCardToGameDeck()">Add card</button>
+
+                        <h5>Effect samples</h5>
+                        <pre>{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}</pre>
+                        <pre>{"type": "leadership_ban_next_time", "payload": {"player": null}}</pre>
+                    </details>
+                </div>
+            </div>
         </div>
 
-        <hr />
-        <details>
-            <!-- for debug purpose-->
-            <summary>Game</summary>
-            <p>Common account: ${game.round_common_account_points}$ points</p>
-            <pre>${ game }$</pre>
-            <pre>Stage ${ roundStage }$</pre>
-        </details>
+        <div id="game-layout" v-if="game !== null">
+            <div class="container">
+                <div class="row">
+                    <div class="col">
+                         <h5>У вас очков: &#129689;<strong>${game.all_players_points[playerName]}$</strong></h5>
 
+                        <p>Раунд ${game.round}$ <span style="color: #ccc">/ ${game.rounds}$</p>
+                        <p>Сейчас ходит ${ game.active_player }$</p>
+                    </div>
+                </div>
+
+                <!-- Players list -->
+                <div class="row mb-4">
+                    <div class="col-auto mx-1"
+                         v-for="plName in game.players">
+                        <div class="portrait border p-2"
+                             :style="{'background-image': 'url(/static/portrait' + (playerPortraits[plName] || 0) + '.jpg)'}"
+                             :class="{'border-info border-3': game.active_player == plName, 'border-secondary-subtle': game.active_player != plName, 'shadow': projectTeamMembersSelection[plName]}">
+
+                            <div>
+                                <p>
+                                    <input type="checkbox"
+                                       style="width: 25px; height: 25px;"
+                                       :disabled="(selectedProjectTeamMembers.length >= projectTeamMaxMembers && !selectedProjectTeamMembers.includes(plName))"
+                                       v-model="projectTeamMembersSelection[plName]"
+                                       v-if="isLeader() && roundStage === 1 && game.leader !== plName">
+                                    <span class="p-1"><strong><span v-if="plName == game.leader">&#128081;</span><span v-if="game.team && game.team.includes(plName)">&#128119;</span>${ plName }$</strong></span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-if="isLeader() && roundStage === 1">
+                        <div class="row mt-3">
+                            <div class="col">
+                                <button type="button" class="btn btn-primary" @click="submitProjectTeamSelection() && projectTeamMembersSelection.length > 0">Подтвердить выбор команды</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cards -->
+                <div class="row justify-content-sm-center bg-gradient bg-light py-4 shadow">
+                    <div class="col text-center">
+                        <div v-if="game.cards_on_table && game.cards_on_table.length > 0">
+                            <div v-if="isLeader()">
+                                <div class="row">
+                                    <div class="col">
+                                        <table-card @click="toggleCard(card)"
+                                            :card="card"
+                                            :class="{'border-3 shadow-lg border-info': isCardSelected(card)}"
+                                            v-for="card in game.cards_on_table"
+                                            :key="card.card_id"
+                                            :effects-visibility="game.card_effect_visibility"
+                                            :is-leader="isLeader()" />
+
+                                    </div>
+                                </div>
+
+                                <div class="row mt-3">
+                                    <div class="col">
+                                        <button type="button"
+                                                class="btn btn-primary"
+                                                @click="submitCardsSelection()"
+                                                :disabled="!selectedCards.length">Подтвердить выбор проекта</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-if="!isLeader()">
+                                <div class="row">
+                                    <div class="col">
+                                        <table-card :card="card"
+                                                    v-for="card in game.cards_on_table"
+                                                    :key="card.card_id"
+                                                    :effects-visibility="game.card_effect_visibility"
+                                                    :is-leader="isLeader()"/>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div v-if="roundStage > 0">
+                            <div class="row">
+                                <div class="col">
+                                    <table-card :card="card"
+                                                v-for="card in game.cards_selected_by_leader"
+                                                :key="card.card_id"
+                                                :effects-visibility="game.card_effect_visibility"
+                                                :is-leader="isLeader()"/>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Current state notification -->
+                <div class="row justify-content-sm-center py-3">
+                    <div class="col">
+                        <div v-if="roundStage === 1">
+                            <p>Лидер выбирает команду... </p>
+                        </div>
+
+                        <template v-if="isActivePlayer()">
+                            <b>Ваш ход!</b>
+                        </template>
+
+                        <div v-if="roundStage === 2 && isPlayerProjectParticipant() && isActivePlayer()">
+                            <label>Выберите, сколько вложить в проект: ${ playerProjectBid }$</label>
+                            <input type="range"
+                                   v-model="playerProjectBid"
+                                   min="0"
+                                   :max="game.all_players_points[playerName]" />
+
+                            <div class="row mt-3">
+                                <div class="col">
+                                    <button type="button"
+                                            class="btn btn-primary"
+                                            @click="makeProjectDeposit(playerProjectBid)">Подтвердить</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="roundStage === 2 && (!isPlayerProjectParticipant() || !isActivePlayer())">
+                            <p>Ждем результатов строительства</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Effects to apply -->
+                <div class="row justify-content-sm-center">
+                    <div class="col">
+                        <div v-if="game.effects_to_apply && game.effects_to_apply.length > 0">
+                            Действующие эффекты:
+                            <ul>
+                                <li v-for="effect in game.effects_to_apply">
+                                    <span v-if="effect.name == 'change_player_points'">
+                                        <span>Изменение очков: &#129689;&nbsp;<span v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
+                                        <span>
+                                            &nbsp;/&nbsp;&#8987;&nbsp;${ effect.payload.rounds_to_apply }$
+                                        </span>
+                                        <span> для ${ effect.payload.players.join(', ') }$</span>
+                                    </span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
     </div>
+
+    <template id="TableCard">
+        <div class="card shadow-sm mx-3 border-1 py-4">
+            <h6>${ card.name }$</h6>
+            <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
+            <p>Нужно собрать &#129689; ${ card.points_to_succeed }$</p>
+
+            <div v-for="condition in ['on_success', 'on_failure']"
+                 class="card-effect py-3"
+                 :set="effects = parseCardEffect(card[condition])"
+                 :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
+
+                <div><small><small>${ condition == 'on_success' ? 'При успехе' : 'При провале' }$</small></small></div>
+
+                <div v-if="!isConditionEffectsVisible(condition)">
+                    Эффект скрыт
+                </div>
+
+                <div v-if="isConditionEffectsVisible(condition)">
+                    <div v-for="effect in effects" class="mb-3">
+                        <div v-if="effect.name">
+                            <div v-if="effect.name == 'change_player_points'">
+                                <div>
+                                    ${ buildCategoriesDescription(effect.payload.categories_of_players) }$ получает
+                                    <span>&#129689;&nbsp;<span v-if="effect.payload.points > 0">+</span>${ effect.payload.points }$</span>
+                                    <span v-if="effect.payload.rounds_to_apply > 1"> / &#8987;&nbsp;${ effect.payload.rounds_to_apply }$</span>
+                                </div>
+                            </div>
+                            <div v-if="effect.name == 'give_overpayment'">
+                                <div>
+                                    ${ buildCategoriesDescription(effect.payload.categories_of_players) }$ получает переплату
+                                </div>
+                            </div>
+                            <div v-if="effect.name == 'cancel_effects'">
+                                <div>
+                                    Отменяет ${ {'all_effects': 'все', 'positive_effects': 'положительные', 'negative_effects': 'отрицательные'}[effect.payload.cancel] }$ эффекты у ${ buildCategoriesDescription(effect.payload.categories_of_players) }$
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
 
     <script type="text/javascript" charset="utf-8">
         const { createApp, ref } = Vue
         var socket = io();
 
-        createApp({
+        const app = createApp({
             setup() {
                 return {
+                    showPortraitOptions: ref(false),
+                    playerPortraits: ref({}),
+                    portrait: ref(0),
+                    debug: ref(false),
                     selectedCards: ref([]),
                     playerProjectBid: ref(0),
                     projectTeamMembersSelection: ref({}),
@@ -375,21 +483,613 @@
                     }),
                     cardDeck: ref([
                         {
-                            name: 'Station',
-                            points_to_succeed: 10,
-                            min_team: 1,
-                            max_team: 2,
-                            on_success: '[{"name": "change_player_points", "type": "positive", "payload": {"rounds_to_apply": 7, "categories_of_players": ["leader", "team"], "points": 10, "players": []}}, {"name": "give_overpayment", "type": "positive", "payload": {"categories_of_players": ["leader"], "players": []}}]',
-                            on_failure: '[{"name": "change_player_points", "type": "negative", "payload": {"rounds_to_apply": 7, "categories_of_players": ["leader"], "points": -3, "players": []}}]',
-                        },
-                        {
-                            name: 'Hospital',
-                            points_to_succeed: 5,
-                            min_team: 1,
-                            max_team: 2,
-                            on_success: '[{"name": "cancel_effects", "payload": {"categories_of_players": ["all"], "players": [], "cancel": "all_effects"}}]',
-                            on_failure: '[]'
-                        }
+                                "name": "Station",
+                                "points_to_succeed": 20,
+                                "min_team": 2,
+                                "max_team": 2,
+                                "on_success": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "positive",
+                                        "payload": {
+                                            "rounds_to_apply": 1,
+                                            "categories_of_players": ["team"],
+                                            "points": 15,
+                                            "players": []
+                                        }
+                                    },
+                                    {
+                                        "name": "give_overpayment",
+                                        "type": "positive",
+                                        "payload": {
+                                            "categories_of_players": ["leader"],
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                                "on_failure": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "negative",
+                                        "payload": {
+                                            "rounds_to_apply": 1,
+                                            "categories_of_players": ["team", "leader"],
+                                            "points": -3,
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                            },
+                            {
+                                "name": "Theatre",
+                                "points_to_succeed": 20,
+                                "min_team": 2,
+                                "max_team": 2,
+                                "on_success": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "positive",
+                                        "payload": {
+                                            "rounds_to_apply": 2,
+                                            "categories_of_players": ["team"],
+                                            "points": 8,
+                                            "players": []
+                                        }
+                                    },
+                                    {
+                                        "name": "give_overpayment",
+                                        "type": "positive",
+                                        "payload": {
+                                            "categories_of_players": ["leader"],
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                                "on_failure": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "negative",
+                                        "payload": {
+                                            "rounds_to_apply": 2,
+                                            "categories_of_players": ["team", "leader"],
+                                            "points": -2,
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                            },
+                            {
+                                "name": "Cinema",
+                                "points_to_succeed": 20,
+                                "min_team": 2,
+                                "max_team": 2,
+                                "on_success": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "positive",
+                                        "payload": {
+                                            "rounds_to_apply": 3,
+                                            "categories_of_players": ["team"],
+                                            "points": 6,
+                                            "players": []
+                                        }
+                                    },
+                                    {
+                                        "name": "give_overpayment",
+                                        "type": "positive",
+                                        "payload": {
+                                            "categories_of_players": ["leader"],
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                                "on_failure": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "negative",
+                                        "payload": {
+                                            "rounds_to_apply": 3,
+                                            "categories_of_players": ["team", "leader"],
+                                            "points": -1,
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                            },
+                            {
+                                "name": "School",
+                                "points_to_succeed": 20,
+                                "min_team": 2,
+                                "max_team": 2,
+                                "on_success": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "positive",
+                                        "payload": {
+                                            "rounds_to_apply": 4,
+                                            "categories_of_players": ["team"],
+                                            "points": 5,
+                                            "players": []
+                                        }
+                                    },
+                                    {
+                                        "name": "give_overpayment",
+                                        "type": "positive",
+                                        "payload": {
+                                            "categories_of_players": ["leader"],
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                                "on_failure": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "negative",
+                                        "payload": {
+                                            "rounds_to_apply": 4,
+                                            "categories_of_players": ["team", "leader"],
+                                            "points": -1,
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                            },
+                            {
+                                "name": "Restaurant",
+                                "points_to_succeed": 20,
+                                "min_team": 2,
+                                "max_team": 2,
+                                "on_success": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "positive",
+                                        "payload": {
+                                            "rounds_to_apply": 5,
+                                            "categories_of_players": ["team"],
+                                            "points": 5,
+                                            "players": []
+                                        }
+                                    },
+                                    {
+                                        "name": "give_overpayment",
+                                        "type": "positive",
+                                        "payload": {
+                                            "categories_of_players": ["leader"],
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                                "on_failure": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "negative",
+                                        "payload": {
+                                            "rounds_to_apply": 5,
+                                            "categories_of_players": ["team", "leader"],
+                                            "points": -1,
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                            },
+                            {
+                                "name": "Church",
+                                "points_to_succeed": 30,
+                                "min_team": 2,
+                                "max_team": 2,
+                                "on_success": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "positive",
+                                        "payload": {
+                                            "rounds_to_apply": 1,
+                                            "categories_of_players": ["team"],
+                                            "points": 25,
+                                            "players": []
+                                        }
+                                    },
+                                    {
+                                        "name": "give_overpayment",
+                                        "type": "positive",
+                                        "payload": {
+                                            "categories_of_players": ["leader"],
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                                "on_failure": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "negative",
+                                        "payload": {
+                                            "rounds_to_apply": 1,
+                                            "categories_of_players": ["team", "leader"],
+                                            "points": -3,
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                            },
+                            {
+                                "name": "Market",
+                                "points_to_succeed": 30,
+                                "min_team": 2,
+                                "max_team": 2,
+                                "on_success": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "positive",
+                                        "payload": {
+                                            "rounds_to_apply": 2,
+                                            "categories_of_players": ["team"],
+                                            "points": 13,
+                                            "players": []
+                                        }
+                                    },
+                                    {
+                                        "name": "give_overpayment",
+                                        "type": "positive",
+                                        "payload": {
+                                            "categories_of_players": ["leader"],
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                                "on_failure": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "negative",
+                                        "payload": {
+                                            "rounds_to_apply": 2,
+                                            "categories_of_players": ["team", "leader"],
+                                            "points": -2,
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                            },
+                            {
+                                "name": "Highway",
+                                "points_to_succeed": 30,
+                                "min_team": 2,
+                                "max_team": 2,
+                                "on_success": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "positive",
+                                        "payload": {
+                                            "rounds_to_apply": 3,
+                                            "categories_of_players": ["team"],
+                                            "points": 10,
+                                            "players": []
+                                        }
+                                    },
+                                    {
+                                        "name": "give_overpayment",
+                                        "type": "positive",
+                                        "payload": {
+                                            "categories_of_players": ["leader"],
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                                "on_failure": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "negative",
+                                        "payload": {
+                                            "rounds_to_apply": 3,
+                                            "categories_of_players": ["team", "leader"],
+                                            "points": -1,
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                            },
+                            {
+                                "name": "Museum",
+                                "points_to_succeed": 30,
+                                "min_team": 2,
+                                "max_team": 2,
+                                "on_success": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "positive",
+                                        "payload": {
+                                            "rounds_to_apply": 4,
+                                            "categories_of_players": ["team"],
+                                            "points": 9,
+                                            "players": []
+                                        }
+                                    },
+                                    {
+                                        "name": "give_overpayment",
+                                        "type": "positive",
+                                        "payload": {
+                                            "categories_of_players": ["leader"],
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                                "on_failure": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "negative",
+                                        "payload": {
+                                            "rounds_to_apply": 4,
+                                            "categories_of_players": ["team", "leader"],
+                                            "points": -1,
+                                            "players": []
+                                        }
+                                    }
+                                ]`
+                            },
+                            {
+                                "name": "Library",
+                                "points_to_succeed": 30,
+                                "min_team": 2,
+                                "max_team": 2,
+                                "on_success": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "positive",
+                                        "payload": {
+                                            "rounds_to_apply": 5,
+                                            "categories_of_players": ["team"],
+                                            "points": 8,
+                                            "players": []
+                                        }
+                                    },
+                                    {
+                                        "name": "give_overpayment",
+                                        "type": "positive",
+                                        "payload": {
+                                            "categories_of_players": ["leader"],
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                                "on_failure": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "negative",
+                                        "payload": {
+                                            "rounds_to_apply": 5,
+                                            "categories_of_players": ["team", "leader"],
+                                            "points": -1,
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                            },
+                            {
+                                "name": "Plant",
+                                "points_to_succeed": 40,
+                                "min_team": 3,
+                                "max_team": 3,
+                                "on_success": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "positive",
+                                        "payload": {
+                                            "rounds_to_apply": 1,
+                                            "categories_of_players": ["team"],
+                                            "points": 25,
+                                            "players": []
+                                        }
+                                    },
+                                    {
+                                        "name": "give_overpayment",
+                                        "type": "positive",
+                                        "payload": {
+                                            "categories_of_players": ["leader"],
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                                "on_failure": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "negative",
+                                        "payload": {
+                                            "rounds_to_apply": 1,
+                                            "categories_of_players": ["team", "leader"],
+                                            "points": -3,
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                            },
+                            {
+                                "name": "Factory",
+                                "points_to_succeed": 40,
+                                "min_team": 3,
+                                "max_team": 3,
+                                "on_success": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "positive",
+                                        "payload": {
+                                            "rounds_to_apply": 2,
+                                            "categories_of_players": ["team"],
+                                            "points": 14,
+                                            "players": []
+                                        }
+                                    },
+                                    {
+                                        "name": "give_overpayment",
+                                        "type": "positive",
+                                        "payload": {
+                                            "categories_of_players": ["leader"],
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                                "on_failure": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "negative",
+                                        "payload": {
+                                            "rounds_to_apply": 2,
+                                            "categories_of_players": ["team", "leader"],
+                                            "points": -2,
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                            },
+                            {
+                                "name": "University",
+                                "points_to_succeed": 40,
+                                "min_team": 3,
+                                "max_team": 3,
+                                "on_success": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "positive",
+                                        "payload": {
+                                            "rounds_to_apply": 3,
+                                            "categories_of_players": ["team"],
+                                            "points": 10,
+                                            "players": []
+                                        }
+                                    },
+                                    {
+                                        "name": "give_overpayment",
+                                        "type": "positive",
+                                        "payload": {
+                                            "categories_of_players": ["leader"],
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                                "on_failure": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "negative",
+                                        "payload": {
+                                            "rounds_to_apply": 3,
+                                            "categories_of_players": ["team", "leader"],
+                                            "points": -1,
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                            },
+                            {
+                                "name": "Airport",
+                                "points_to_succeed": 60,
+                                "min_team": 4,
+                                "max_team": 4,
+                                "on_success": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "positive",
+                                        "payload": {
+                                            "rounds_to_apply": 1,
+                                            "categories_of_players": ["team"],
+                                            "points": 30,
+                                            "players": []
+                                        }
+                                    },
+                                    {
+                                        "name": "give_overpayment",
+                                        "type": "positive",
+                                        "payload": {
+                                            "categories_of_players": ["leader"],
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                                "on_failure": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "negative",
+                                        "payload": {
+                                            "rounds_to_apply": 1,
+                                            "categories_of_players": ["team", "leader"],
+                                            "points": -3,
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                            },
+                            {
+                                "name": "Bus_station",
+                                "points_to_succeed": 60,
+                                "min_team": 4,
+                                "max_team": 4,
+                                "on_success": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "positive",
+                                        "payload": {
+                                            "rounds_to_apply": 2,
+                                            "categories_of_players": ["team"],
+                                            "points": 17,
+                                            "players": []
+                                        }
+                                    },
+                                    {
+                                        "name": "give_overpayment",
+                                        "type": "positive",
+                                        "payload": {
+                                            "categories_of_players": ["leader"],
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                                "on_failure": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "negative",
+                                        "payload": {
+                                            "rounds_to_apply": 2,
+                                            "categories_of_players": ["team", "leader"],
+                                            "points": -2,
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                            },
+                            {
+                                "name": "Metro_station",
+                                "points_to_succeed": 60,
+                                "min_team": 4,
+                                "max_team": 4,
+                                "on_success": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "positive",
+                                        "payload": {
+                                            "rounds_to_apply": 3,
+                                            "categories_of_players": ["team"],
+                                            "points": 13,
+                                            "players": []
+                                        }
+                                    },
+                                    {
+                                        "name": "give_overpayment",
+                                        "type": "positive",
+                                        "payload": {
+                                            "categories_of_players": ["leader"],
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                                "on_failure": `[
+                                    {
+                                        "name": "change_player_points",
+                                        "type": "negative",
+                                        "payload": {
+                                            "rounds_to_apply": 3,
+                                            "categories_of_players": ["team", "leader"],
+                                            "points": -1,
+                                            "players": []
+                                        }
+                                    }
+                                ]`,
+                            },
                     ])
                 }
             },
@@ -426,8 +1126,13 @@
                 }
             },
             methods: {
-                parseCardEffect(effect) {
-                    return effect ? JSON.parse(effect) : {}
+                selectPortrait(id) {
+                    this.portrait = id;
+                    socket.emit('select_player_portrait', {
+                        "room_id": this.roomId,
+                        "portrait_id": id,
+                        "player_name": this.playerName
+                    });
                 },
                 isPlayerProjectParticipant() {
                     return this.roundStage === 2 && this.game.team.includes(this.playerName);
@@ -499,55 +1204,85 @@
             },
             mounted() {
                 let vm = this;
-                socket.on('connect', function () {
-                    console.log('connected')
-                    socket.emit('player_enter', { "player_name": vm.playerName, "room_id": vm.roomId });
-                });
-                socket.on("room_entered", (arg) => {
-                    vm.players = arg.players;
-                    vm.config = arg.config;
-                    vm.game = arg.game
-                });
-                socket.on('game_started', (arg) => {
-                    console.log(arg)
-                    vm.game = arg.game
-                });
-                socket.on('game_ended', (arg) => {
-                    vm.finalRating = arg.rating;
-                });
-                socket.on('round_started', (arg) => {
-                    console.log(arg)
-                    vm.game = arg.game
-                });
-                socket.on('move_started', (arg) => {
-                    console.log(arg)
-                    vm.game = arg.game
-                });
-                socket.on('player_points_changed', (arg) => {
-                    console.log(arg)
-                    vm.game = arg.game
-                });
-                socket.on('added_to_common_account', (arg) => {
-                    console.log(arg)
-                    vm.game = arg.game
-                });
-                socket.on('cards_for_round_selected', (arg) => {
-                    vm.game = arg.game
-                });
-                socket.on('team_for_round_selected', (arg) => {
-                    console.log(arg)
-                    vm.game = arg.game
-                })
-                socket.on('round_result', (arg) => {
-                    console.log(arg)
-                    vm.roundResults = arg.is_success
-                })
-            },
-            delimiters: ["${", "}$"],
 
-        }).mount('#app')
+                let listeners = {
+                    'connect': function() {
+                        socket.emit('player_enter', { "player_name": vm.playerName, "room_id": vm.roomId });
+                    },
+                    'room_entered': function(arg) {
+                        vm.players = arg.players;
+                        vm.config = arg.config;
+                        vm.game = arg.game;
+                    },
+                    'game_started': function(arg) {
+                        vm.game = arg.game;
+                    },
+                    'game_ended': function(arg) {
+                        vm.finalRating = arg.rating;
+                    },
+                    'round_started': function(arg) {
+                        vm.game = arg.game;
+                    },
+                    'move_started': function(arg) {
+                        vm.game = arg.game;
+                    },
+                    'player_points_changed': function(arg) {
+                        vm.game = arg.game;
+                    },
+                    'added_to_common_account': function(arg) {
+                        vm.game = arg.game;
+                    },
+                    'cards_for_round_selected': function(arg) {
+                        vm.game = arg.game;
+                    },
+                    'team_for_round_selected': function(arg) {
+                        vm.game = arg.game;
+                    },
+                    'round_result': function(arg) {
+                        vm.roundResults = arg.is_success;
+                    },
+                    'player_portrait_selected': function(arg) {
+                        vm.playerPortraits[arg.player_name] = arg.portrait_id;
+                    }
+                }
+
+                for (const [eventName, cb] of Object.entries(listeners)) {
+                    socket.on(eventName, (arg) => {
+                        console.log(eventName, arg)
+                        cb(arg)
+                    });
+                }
+            },
+        });
+        app.component('TableCard', {
+            props: ['card', 'effectsVisibility', 'isLeader'],
+            methods: {
+                parseCardEffect(effect) {
+                    return effect ? JSON.parse(effect) : {}
+                },
+                isConditionEffectsVisible(condition) {
+                    let key = condition == 'on_success' ? 'onSuccess' : 'onFailure';
+                    let group = this.isLeader ? 'leader' : 'players';
+
+                    return this.effectsVisibility[key][group] === true;
+                },
+                buildCategoriesDescription(categories) {
+                    let translates = [
+                        categories.includes('leader') ? 'лидер' : '',
+                        categories.includes('team') ? 'команда' : '',
+                        categories.includes('all') ? 'каждый игрок' : '',
+                        categories.includes('others') ? 'Каждый, кроме лидера и команды' : '',
+                    ].filter(i => Boolean(i)).join(' и ');
+
+                    return translates.charAt(0).toUpperCase() + translates.slice(1)
+                }
+            },
+            template: '#TableCard',
+        });
+
+        app.config.compilerOptions.delimiters = ["${", "}$"];
+        app.mount('#app')
 
     </script>
 </body>
-
 </html>

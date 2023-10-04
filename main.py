@@ -184,7 +184,7 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
                         player_name=player,
                         points=points_to_each_player,
                     )
-                effects.pop(i)
+            effects.pop(i)
         elif effect["name"] == "take_away_underpayment":
             underpayment = game["round_delta"]
             if underpayment < 0:
@@ -195,7 +195,7 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
                         player_name=player,
                         points=points_from_each_player,
                     )
-                effects.pop(i)
+            effects.pop(i)
         elif effect["name"] == "cards_selection_ban_next_time":
             # TODO
             pass
@@ -531,6 +531,27 @@ def handle_select_team_for_round(data):
     game, _ = move_to_next_player(data["room_id"])
 
     emit("team_for_round_selected", {"game": game}, to=data["room_id"])
+
+
+@socketio.on("select_player_portrait")
+def handle_portrait_select(data):
+    """Portrait is selected by a player.
+    Data = {
+    "player_name": player_name,
+    "room_id": room_id,
+    "portrait_id": portrait_id,
+    }
+    """
+    room_id = data['room_id']
+
+    write_to_db(
+        "UPDATE room_players SET portrait_id=:portrait_id WHERE room_id=:room_id AND player_name=:player_name",
+        {"portrait_id": data['portrait_id'], 'room_id': room_id, 'player_name': data['player_name']},
+    )
+
+    emit("player_portrait_selected",
+         {"player_name": data['player_name'], "portrait_id": data['portrait_id']},
+         to=room_id)
 
 
 def define_rating(game: dict):
