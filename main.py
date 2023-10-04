@@ -184,7 +184,7 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
                         player_name=player,
                         points=points_to_each_player,
                     )
-                effects.pop(i)
+            effects.pop(i)
         elif effect["name"] == "take_away_underpayment":
             underpayment = game["round_delta"]
             if underpayment < 0:
@@ -195,7 +195,7 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
                         player_name=player,
                         points=points_from_each_player,
                     )
-                effects.pop(i)
+            effects.pop(i)
         elif effect["name"] == "cards_selection_ban_next_time":
             # TODO
             pass
