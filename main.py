@@ -159,7 +159,8 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
     if len(effects) > 0 and effects[0]["name"] == "cancel_effects":
         effects = cancel_effects(cancel_effect=effects[0], effects=effects)
 
-    for i, effect in enumerate(effects[:]):
+    expired_effects = []
+    for i, effect in enumerate(effects):
         payload = effect["payload"]
         players = payload["players"]
         if effect["name"] == "change_player_points":
@@ -168,12 +169,13 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
                     room_id=room_id, player_name=player, points=payload["points"]
                 )
             payload["rounds_to_apply"] -= 1
+
             if payload["rounds_to_apply"] <= 0:
-                effects.pop(i)
+                expired_effects.append(i)
         elif effect["name"] == "leadership_ban_next_time":
             if game["leader"] == players[0]:
                 game = rotate_players_order_in_round(game)
-                effects.pop(i)
+                expired_effects.append(i)
         elif effect["name"] == "give_overpayment":
             overpayment = game["round_delta"]
             if overpayment > 0:
@@ -184,7 +186,7 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
                         player_name=player,
                         points=points_to_each_player,
                     )
-            effects.pop(i)
+            expired_effects.append(i)
         elif effect["name"] == "take_away_underpayment":
             underpayment = game["round_delta"]
             if underpayment < 0:
@@ -195,7 +197,7 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
                         player_name=player,
                         points=points_from_each_player,
                     )
-            effects.pop(i)
+            expired_effects.append(i)
         elif effect["name"] == "cards_selection_ban_next_time":
             # TODO
             pass
@@ -203,7 +205,12 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
             # TODO
             pass
 
-    game["effects_to_apply"] = effects
+    effects_to_apply = []
+    for i, effect in enumerate(effects):
+        if i not in expired_effects:
+            effects_to_apply.append(effect)
+
+    game["effects_to_apply"] = effects_to_apply
     return game
 
 
