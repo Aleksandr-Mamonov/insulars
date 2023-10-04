@@ -205,12 +205,11 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
             # TODO
             pass
 
-    effects_to_apply = []
-    for i, effect in enumerate(effects):
-        if i not in expired_effects:
-            effects_to_apply.append(effect)
+    for i in expired_effects:
+        effects.pop(i)
 
-    game["effects_to_apply"] = effects_to_apply
+    game["effects_to_apply"] = effects
+
     return game
 
 
