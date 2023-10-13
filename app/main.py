@@ -329,7 +329,8 @@ def change_project_points(game: dict, points: int):
 @socketio.on("select_cards_from_table")
 def handle_select_cards_from_table(data):
     """Card(s) can be selected only by leader in current round."""
-    game = get_game(data["room_id"])
+    room_id = data["room_id"]
+    game = get_game(room_id)
     for card in game["cards_on_table"]:
         card_id = card["card_id"]
         for selected_card_id in data["selected_cards_ids"]:
@@ -338,11 +339,8 @@ def handle_select_cards_from_table(data):
                 break
 
     game["cards_on_table"].clear()
-    write_to_db(
-        "UPDATE rooms SET game=:game WHERE uid=:room_id",
-        {"game": json.dumps(game), "room_id": data["room_id"]},
-    )
-    emit("cards_for_round_selected", {"game": game}, to=data["room_id"])
+    store_game(room_id, game)
+    emit("cards_for_round_selected", {"game": game}, to=room_id)
 
 
 def get_game(room_id):
