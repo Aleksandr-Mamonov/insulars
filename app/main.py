@@ -393,7 +393,7 @@ def populate_players_to_whom_apply_effect(game: dict, effect: dict):
     return effect
 
 
-def implement_project_result(game, room_id):
+def implement_project_result(game: dict):
     # Check whether team succeeded or failed in ended round
     points_to_succeed = sum(
         [int(card["points_to_succeed"]) for card in game["cards_selected_by_leader"]]
@@ -413,11 +413,10 @@ def implement_project_result(game, room_id):
                 else:
                     game["effects_to_apply"].append(effect)
 
-    store_game(room_id, game)
-    return is_success
+    return game, is_success
 
 
-def start_next_round(room_id, game):
+def start_next_round(game: dict):
     game["round"] += 1
     # That was last round, so game ended. Show game results.
     if game["round"] > game["rounds"]:
@@ -442,8 +441,6 @@ def start_next_round(room_id, game):
         game["active_player"] = players_order_in_new_round[0]
         game["leader"] = players_order_in_new_round[0]
 
-        store_game(room_id, game)
-
         return game["round"], game
 
 
@@ -462,9 +459,9 @@ def handle_make_project_deposit(data):
     if has_player_to_move_next:
         emit("move_started", {"game": game}, to=room_id)
     else:
-        is_success = implement_project_result(game, room_id)
+        game, is_success = implement_project_result(game)
         emit("round_result", {"is_success": is_success}, to=room_id)
-        next_round_n, game = start_next_round(room_id, game)
+        next_round_n, game = start_next_round(game)
         game = apply_effects(game, game["effects_to_apply"], room_id)
         if next_round_n is None:
             write_to_db(
