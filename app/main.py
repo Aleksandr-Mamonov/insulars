@@ -5,19 +5,19 @@ import uuid
 from flask import Flask, url_for, redirect, request, render_template, session
 from flask_socketio import SocketIO, emit, send, join_room, leave_room
 
-from config import (
+from .config import (
     MIN_PLAYERS,
     MAX_PLAYERS,
     CARDS_ON_TABLE_IN_ROUND,
 )
-from database import select_one_from_db, select_all_from_db, write_to_db
+from .database import select_one_from_db, select_all_from_db, write_to_db
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
 socketio = SocketIO(app)
-# Run command
-# flask --app main run --debug
 
+# flask --app app.main run --debug
+# python -m app.main
 # app.secret_key = "7f7c27265646902d9775e9fa1369fbf200cde69c"
 
 
@@ -406,12 +406,12 @@ def populate_players_to_whom_apply_effect(game: dict, effect: dict):
                 if player not in game["team"] and player != game["leader"]
             ]
             players_to_whom_apply.extend(others)
-        elif category == 'leader':
-            players_to_whom_apply.extend([game['leader']])
-        elif category == 'team':
-            players_to_whom_apply.extend(game['team'])
+        elif category == "leader":
+            players_to_whom_apply.extend([game["leader"]])
+        elif category == "team":
+            players_to_whom_apply.extend(game["team"])
         else:
-            raise RuntimeError('Unknown player category')
+            raise RuntimeError("Unknown player category")
 
     effect["payload"]["players"].extend(players_to_whom_apply)
     return effect
@@ -551,16 +551,22 @@ def handle_portrait_select(data):
     "portrait_id": portrait_id,
     }
     """
-    room_id = data['room_id']
+    room_id = data["room_id"]
 
     write_to_db(
         "UPDATE room_players SET portrait_id=:portrait_id WHERE room_id=:room_id AND player_name=:player_name",
-        {"portrait_id": data['portrait_id'], 'room_id': room_id, 'player_name': data['player_name']},
+        {
+            "portrait_id": data["portrait_id"],
+            "room_id": room_id,
+            "player_name": data["player_name"],
+        },
     )
 
-    emit("player_portrait_selected",
-         {"player_name": data['player_name'], "portrait_id": data['portrait_id']},
-         to=room_id)
+    emit(
+        "player_portrait_selected",
+        {"player_name": data["player_name"], "portrait_id": data["portrait_id"]},
+        to=room_id,
+    )
 
 
 def define_rating(game: dict):
