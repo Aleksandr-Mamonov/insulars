@@ -165,9 +165,7 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
         players = payload["players"]
         if effect["name"] == "change_player_points":
             for player in players:
-                game = change_player_points(
-                    room_id=room_id, player_name=player, points=payload["points"]
-                )
+                game = change_player_points(game, player, payload["points"])
             payload["rounds_to_apply"] -= 1
 
             if payload["rounds_to_apply"] <= 0:
@@ -181,22 +179,14 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
             if overpayment > 0:
                 points_to_each_player = overpayment // len(players)
                 for player in players:
-                    game = change_player_points(
-                        room_id=room_id,
-                        player_name=player,
-                        points=points_to_each_player,
-                    )
+                    game = change_player_points(game, player, points_to_each_player)
             expired_effects.append(i)
         elif effect["name"] == "take_away_underpayment":
             underpayment = game["round_delta"]
             if underpayment < 0:
                 points_from_each_player = underpayment // len(players)
                 for player in players:
-                    game = change_player_points(
-                        room_id=room_id,
-                        player_name=player,
-                        points=points_from_each_player,
-                    )
+                    game = change_player_points(game, player, points_from_each_player)
             expired_effects.append(i)
         elif effect["name"] == "cards_selection_ban_next_time":
             # TODO
@@ -324,25 +314,15 @@ def handle_game_start(data):
     emit("game_started", {"game": game}, to=data["room_id"])
 
 
-def change_player_points(room_id, player_name, points: int):
-    game = get_game(room_id)
+def change_player_points(game: dict, player_name, points: int):
     game["all_players_points"][player_name] = max(
         game["all_players_points"][player_name] + points, 0
     )
-    store_game(room_id, game)
     return game
 
 
-def change_project_points(room_id, points_delta: int):
-    game = get_game(room_id)
-
-    round_common_account_points = game["round_common_account_points"]
-    round_common_account_points = round_common_account_points + points_delta
-
-    game["round_common_account_points"] = round_common_account_points
-
-    store_game(room_id, game)
-
+def change_project_points(game: dict, points: int):
+    game["round_common_account_points"] = game["round_common_account_points"] + points
     return game
 
 
@@ -474,13 +454,12 @@ def start_next_round(room_id, game):
 @socketio.on("make_project_deposit")
 def handle_make_project_deposit(data):
     """Player make a points deposit during project development"""
-
     room_id = data["room_id"]
     points = int(data["points"])
-
-    change_player_points(room_id, data["player_name"], -points)
-    game = change_project_points(room_id, points)
-
+    game = get_game(room_id)
+    game = change_player_points(game, data["player_name"], -points)
+    game = change_project_points(game, points)
+    store_game(room_id, game)
     emit("project_deposited", {"game": game}, to=data["room_id"])
     emit("player_points_changed", {"game": game}, to=data["room_id"])
 
