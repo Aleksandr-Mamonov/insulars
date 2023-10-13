@@ -358,13 +358,11 @@ def store_game(room_id, game):
     )
 
 
-def move_to_next_player(room_id):
+def move_to_next_player(game: dict):
     """Change active player to next one"""
-    game = get_game(room_id)
     game["players_to_move"].pop(0)
     if len(game["players_to_move"]) > 0:
         game["active_player"] = game["players_to_move"][0]
-        store_game(room_id, game)
         return game, True
     else:
         return game, False
@@ -457,29 +455,27 @@ def handle_make_project_deposit(data):
     game = get_game(room_id)
     game = change_player_points(game, data["player_name"], -points)
     game = change_project_points(game, points)
+    emit("project_deposited", {"game": game}, to=room_id)
+    emit("player_points_changed", {"game": game}, to=room_id)
+    game, has_player_to_move_next = move_to_next_player(game)
     store_game(room_id, game)
-    emit("project_deposited", {"game": game}, to=data["room_id"])
-    emit("player_points_changed", {"game": game}, to=data["room_id"])
-
-    game, has_player_to_move_next = move_to_next_player(room_id)
-
     if has_player_to_move_next:
-        emit("move_started", {"game": game}, to=data["room_id"])
+        emit("move_started", {"game": game}, to=room_id)
     else:
         is_success = implement_project_result(game, room_id)
-        emit("round_result", {"is_success": is_success}, to=data["room_id"])
+        emit("round_result", {"is_success": is_success}, to=room_id)
         next_round_n, game = start_next_round(room_id, game)
         game = apply_effects(game, game["effects_to_apply"], room_id)
         if next_round_n is None:
             write_to_db(
                 "UPDATE rooms SET game=NULL, number_of_games=number_of_games+1 WHERE uid=:room_id",
-                {"room_id": data["room_id"]},
+                {"room_id": room_id},
             )
             rating = define_rating(game)
-            emit("game_ended", {"rating": rating}, to=data["room_id"])
+            emit("game_ended", {"rating": rating}, to=room_id)
         else:
             store_game(room_id, game)
-            emit("round_started", {"game": game}, to=data["room_id"])
+            emit("round_started", {"game": game}, to=room_id)
 
 
 @socketio.on("select_team_for_round")
@@ -513,9 +509,8 @@ def handle_select_team_for_round(data):
         # TODO
         raise
 
+    game, _ = move_to_next_player(game)
     store_game(data["room_id"], game)
-    game, _ = move_to_next_player(data["room_id"])
-
     emit("team_for_round_selected", {"game": game}, to=data["room_id"])
 
 
