@@ -152,7 +152,7 @@ def cancel_effects(cancel_effect: dict, effects: list):
     return effects
 
 
-def apply_effects(game: dict, effects: list, room_id) -> dict:
+def apply_effects(game: dict, effects: list) -> dict:
     """Get game from db, apply effects, return game.
     Apply effects after round setup.
     """
@@ -167,7 +167,6 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
             for player in players:
                 game = change_player_points(game, player, payload["points"])
             payload["rounds_to_apply"] -= 1
-
             if payload["rounds_to_apply"] <= 0:
                 expired_effects.append(i)
         elif effect["name"] == "leadership_ban_next_time":
@@ -195,9 +194,9 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
             # TODO
             pass
 
-    for i in expired_effects:
-        effects.pop(i)
-
+    effects = [
+        item for item in effects if item not in [effects[i] for i in expired_effects]
+    ]
     game["effects_to_apply"] = effects
 
     return game
@@ -462,7 +461,7 @@ def handle_make_project_deposit(data):
         game, is_success = implement_project_result(game)
         emit("round_result", {"is_success": is_success}, to=room_id)
         next_round_n, game = start_next_round(game)
-        game = apply_effects(game, game["effects_to_apply"], room_id)
+        game = apply_effects(game, game["effects_to_apply"])
         if next_round_n is None:
             write_to_db(
                 "UPDATE rooms SET game=NULL, number_of_games=number_of_games+1 WHERE uid=:room_id",

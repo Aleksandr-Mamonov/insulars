@@ -1,22 +1,17 @@
 import pytest
 
 
-@pytest.fixture(scope="package")
-def room_id_fixture():
-    return "some_random_room_id"
-
-
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="function")
 def game_fixture():
     return {
         "game_id": "d3652faa-6405-4a7c-8c10-f532fb76adde",
         "round": 2,
-        "players": ["a", "b", "c"],
-        "players_order_in_round": ["b", "c", "a"],
-        "players_to_move": ["b", "c", "a"],
-        "active_player": "b",
-        "leader": "b",
-        "all_players_points": {"a": 10, "b": 7, "c": 7},
+        "players": ["a", "b", "c", "d"],
+        "players_order_in_round": [],
+        "players_to_move": [],
+        "active_player": "",
+        "leader": "",
+        "all_players_points": {"a": 10, "b": 7, "c": 4, "d": 1},
         "round_common_account_points": 0,
         "cards_on_table": [
             {
@@ -49,48 +44,61 @@ def game_fixture():
         ],
         "cards_selected_by_leader": [],
         "team": [],
-        "effects_to_apply": [
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "rounds_to_apply": 2,
-                    "categories_of_players": ["team", "leader"],
-                    "points": -2,
-                    "players": ["b", "c", "a"],
-                },
-            }
-        ],
+        "effects_to_apply": [],
         "rounds": 10,
         "card_effect_visibility": {
             "onSuccess": {"leader": True, "players": True},
             "onFailure": {"leader": True, "players": True},
         },
-        "round_delta": -14,
+        "round_delta": 0,
     }
 
 
-@pytest.fixture(scope="package")
-def effects_fixture():
-    return [
-        {
-            "name": "change_player_points",
-            "type": "negative",
-            "payload": {
-                "rounds_to_apply": 3,
-                "categories_of_players": ["team", "leader"],
-                "points": -2,
-                "players": ["b", "c"],
-            },
+@pytest.fixture(scope="function")
+def effect_change_player_points_fixture():
+    return {
+        "name": "change_player_points",
+        "type": "",
+        "payload": {
+            "categories_of_players": [],
+            "players": [],
+            "rounds_to_apply": 1,
+            "points": 0,
         },
-        {
-            "name": "change_player_points",
-            "type": "positive",
-            "payload": {
-                "rounds_to_apply": 4,
-                "categories_of_players": ["leader"],
-                "points": 3,
-                "players": ["a"],
-            },
+    }
+
+
+@pytest.fixture(scope="function")
+def effect_give_overpayment_fixture():
+    return {
+        "name": "give_overpayment",
+        "type": "positive",
+        "payload": {
+            "categories_of_players": [],
+            "players": [],
         },
-    ]
+    }
+
+
+@pytest.fixture(scope="function")
+def effect_take_away_underpayment_fixture():
+    return {
+        "name": "take_away_underpayment",
+        "type": "negative",
+        "payload": {
+            "categories_of_players": [],
+            "players": [],
+        },
+    }
+
+
+@pytest.fixture(scope="function")
+def effect_leadership_ban_next_time_fixture():
+    return {
+        "name": "leadership_ban_next_time",
+        "type": "negative",
+        "payload": {
+            "categories_of_players": ["leader"],
+            "players": [],
+        },
+    }
