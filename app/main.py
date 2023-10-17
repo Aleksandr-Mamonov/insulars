@@ -5,19 +5,19 @@ import uuid
 from flask import Flask, url_for, redirect, request, render_template, session
 from flask_socketio import SocketIO, emit, send, join_room, leave_room
 
-from config import (
+from .config import (
     MIN_PLAYERS,
     MAX_PLAYERS,
     CARDS_ON_TABLE_IN_ROUND,
 )
-from database import select_one_from_db, select_all_from_db, write_to_db
+from .database import select_one_from_db, select_all_from_db, write_to_db
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
 socketio = SocketIO(app)
-# Run command
-# flask --app main run --debug
 
+# flask --app app.main run --debug
+# python -m app.main
 # app.secret_key = "7f7c27265646902d9775e9fa1369fbf200cde69c"
 
 
@@ -152,7 +152,7 @@ def cancel_effects(cancel_effect: dict, effects: list):
     return effects
 
 
-def apply_effects(game: dict, effects: list, room_id) -> dict:
+def apply_effects(game: dict, effects: list) -> dict:
     """Get game from db, apply effects, return game.
     Apply effects after round setup.
     """
@@ -165,11 +165,8 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
         players = payload["players"]
         if effect["name"] == "change_player_points":
             for player in players:
-                game = change_player_points(
-                    room_id=room_id, player_name=player, points=payload["points"]
-                )
+                game = change_player_points(game, player, payload["points"])
             payload["rounds_to_apply"] -= 1
-
             if payload["rounds_to_apply"] <= 0:
                 expired_effects.append(i)
         elif effect["name"] == "leadership_ban_next_time":
@@ -181,22 +178,14 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
             if overpayment > 0:
                 points_to_each_player = overpayment // len(players)
                 for player in players:
-                    game = change_player_points(
-                        room_id=room_id,
-                        player_name=player,
-                        points=points_to_each_player,
-                    )
+                    game = change_player_points(game, player, points_to_each_player)
             expired_effects.append(i)
         elif effect["name"] == "take_away_underpayment":
             underpayment = game["round_delta"]
             if underpayment < 0:
                 points_from_each_player = underpayment // len(players)
                 for player in players:
-                    game = change_player_points(
-                        room_id=room_id,
-                        player_name=player,
-                        points=points_from_each_player,
-                    )
+                    game = change_player_points(game, player, points_from_each_player)
             expired_effects.append(i)
         elif effect["name"] == "cards_selection_ban_next_time":
             # TODO
@@ -205,9 +194,9 @@ def apply_effects(game: dict, effects: list, room_id) -> dict:
             # TODO
             pass
 
-    for i in expired_effects:
-        effects.pop(i)
-
+    effects = [
+        item for item in effects if item not in [effects[i] for i in expired_effects]
+    ]
     game["effects_to_apply"] = effects
 
     return game
@@ -260,7 +249,7 @@ def handle_player_enter(data):
     """,
         {"room_id": room_id},
     )
-    game = get_room_game(room_id)
+    game = get_game(room_id)
     emit(
         "room_entered",
         {
@@ -324,32 +313,23 @@ def handle_game_start(data):
     emit("game_started", {"game": game}, to=data["room_id"])
 
 
-def change_player_points(room_id, player_name, points: int):
-    game = get_room_game(room_id)
+def change_player_points(game: dict, player_name, points: int):
     game["all_players_points"][player_name] = max(
         game["all_players_points"][player_name] + points, 0
     )
-    store_room_game(room_id, game)
     return game
 
 
-def change_project_points(room_id, points_delta: int):
-    game = get_room_game(room_id)
-
-    round_common_account_points = game["round_common_account_points"]
-    round_common_account_points = round_common_account_points + points_delta
-
-    game["round_common_account_points"] = round_common_account_points
-
-    store_room_game(room_id, game)
-
+def change_project_points(game: dict, points: int):
+    game["round_common_account_points"] = game["round_common_account_points"] + points
     return game
 
 
 @socketio.on("select_cards_from_table")
 def handle_select_cards_from_table(data):
     """Card(s) can be selected only by leader in current round."""
-    game = get_room_game(data["room_id"])
+    room_id = data["room_id"]
+    game = get_game(room_id)
     for card in game["cards_on_table"]:
         card_id = card["card_id"]
         for selected_card_id in data["selected_cards_ids"]:
@@ -358,14 +338,11 @@ def handle_select_cards_from_table(data):
                 break
 
     game["cards_on_table"].clear()
-    write_to_db(
-        "UPDATE rooms SET game=:game WHERE uid=:room_id",
-        {"game": json.dumps(game), "room_id": data["room_id"]},
-    )
-    emit("cards_for_round_selected", {"game": game}, to=data["room_id"])
+    store_game(room_id, game)
+    emit("cards_for_round_selected", {"game": game}, to=room_id)
 
 
-def get_room_game(room_id):
+def get_game(room_id):
     result = select_one_from_db(
         "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": room_id}
     )
@@ -373,20 +350,18 @@ def get_room_game(room_id):
     return json.loads(result["game"]) if result["game"] else None
 
 
-def store_room_game(room_id, game):
+def store_game(room_id, game):
     write_to_db(
         "UPDATE rooms SET game=:game WHERE uid=:room_id",
         {"game": json.dumps(game), "room_id": room_id},
     )
 
 
-def move_to_next_player(room_id):
+def move_to_next_player(game: dict):
     """Change active player to next one"""
-    game = get_room_game(room_id)
     game["players_to_move"].pop(0)
     if len(game["players_to_move"]) > 0:
         game["active_player"] = game["players_to_move"][0]
-        store_room_game(room_id, game)
         return game, True
     else:
         return game, False
@@ -406,18 +381,18 @@ def populate_players_to_whom_apply_effect(game: dict, effect: dict):
                 if player not in game["team"] and player != game["leader"]
             ]
             players_to_whom_apply.extend(others)
-        elif category == 'leader':
-            players_to_whom_apply.extend([game['leader']])
-        elif category == 'team':
-            players_to_whom_apply.extend(game['team'])
+        elif category == "leader":
+            players_to_whom_apply.extend([game["leader"]])
+        elif category == "team":
+            players_to_whom_apply.extend(game["team"])
         else:
-            raise RuntimeError('Unknown player category')
+            raise RuntimeError("Unknown player category")
 
     effect["payload"]["players"].extend(players_to_whom_apply)
     return effect
 
 
-def implement_project_result(game, room_id):
+def implement_project_result(game: dict):
     # Check whether team succeeded or failed in ended round
     points_to_succeed = sum(
         [int(card["points_to_succeed"]) for card in game["cards_selected_by_leader"]]
@@ -437,11 +412,10 @@ def implement_project_result(game, room_id):
                 else:
                     game["effects_to_apply"].append(effect)
 
-    store_room_game(room_id, game)
-    return is_success
+    return game, is_success
 
 
-def start_next_round(room_id, game):
+def start_next_round(game: dict):
     game["round"] += 1
     # That was last round, so game ended. Show game results.
     if game["round"] > game["rounds"]:
@@ -466,43 +440,38 @@ def start_next_round(room_id, game):
         game["active_player"] = players_order_in_new_round[0]
         game["leader"] = players_order_in_new_round[0]
 
-        store_room_game(room_id, game)
-
         return game["round"], game
 
 
 @socketio.on("make_project_deposit")
 def handle_make_project_deposit(data):
     """Player make a points deposit during project development"""
-
     room_id = data["room_id"]
     points = int(data["points"])
-
-    change_player_points(room_id, data["player_name"], -points)
-    game = change_project_points(room_id, points)
-
-    emit("project_deposited", {"game": game}, to=data["room_id"])
-    emit("player_points_changed", {"game": game}, to=data["room_id"])
-
-    game, has_player_to_move_next = move_to_next_player(room_id)
-
+    game = get_game(room_id)
+    game = change_player_points(game, data["player_name"], -points)
+    game = change_project_points(game, points)
+    emit("project_deposited", {"game": game}, to=room_id)
+    emit("player_points_changed", {"game": game}, to=room_id)
+    game, has_player_to_move_next = move_to_next_player(game)
+    store_game(room_id, game)
     if has_player_to_move_next:
-        emit("move_started", {"game": game}, to=data["room_id"])
+        emit("move_started", {"game": game}, to=room_id)
     else:
-        is_success = implement_project_result(game, room_id)
-        emit("round_result", {"is_success": is_success}, to=data["room_id"])
-        next_round_n, game = start_next_round(room_id, game)
-        game = apply_effects(game, game["effects_to_apply"], room_id)
+        game, is_success = implement_project_result(game)
+        emit("round_result", {"is_success": is_success}, to=room_id)
+        next_round_n, game = start_next_round(game)
+        game = apply_effects(game, game["effects_to_apply"])
         if next_round_n is None:
             write_to_db(
                 "UPDATE rooms SET game=NULL, number_of_games=number_of_games+1 WHERE uid=:room_id",
-                {"room_id": data["room_id"]},
+                {"room_id": room_id},
             )
             rating = define_rating(game)
-            emit("game_ended", {"rating": rating}, to=data["room_id"])
+            emit("game_ended", {"rating": rating}, to=room_id)
         else:
-            store_room_game(room_id, game)
-            emit("round_started", {"game": game}, to=data["room_id"])
+            store_game(room_id, game)
+            emit("round_started", {"game": game}, to=room_id)
 
 
 @socketio.on("select_team_for_round")
@@ -516,7 +485,7 @@ def handle_select_team_for_round(data):
     "selected_players": [player_name1, player_name2 ...],
     }
     """
-    game = get_room_game(data["room_id"])
+    game = get_game(data["room_id"])
     # Check whether card(s) for a given round were selected already or not
     if game["cards_selected_by_leader"] == []:
         # TODO
@@ -536,9 +505,8 @@ def handle_select_team_for_round(data):
         # TODO
         raise
 
-    store_room_game(data["room_id"], game)
-    game, _ = move_to_next_player(data["room_id"])
-
+    game, _ = move_to_next_player(game)
+    store_game(data["room_id"], game)
     emit("team_for_round_selected", {"game": game}, to=data["room_id"])
 
 
@@ -551,16 +519,22 @@ def handle_portrait_select(data):
     "portrait_id": portrait_id,
     }
     """
-    room_id = data['room_id']
+    room_id = data["room_id"]
 
     write_to_db(
         "UPDATE room_players SET portrait_id=:portrait_id WHERE room_id=:room_id AND player_name=:player_name",
-        {"portrait_id": data['portrait_id'], 'room_id': room_id, 'player_name': data['player_name']},
+        {
+            "portrait_id": data["portrait_id"],
+            "room_id": room_id,
+            "player_name": data["player_name"],
+        },
     )
 
-    emit("player_portrait_selected",
-         {"player_name": data['player_name'], "portrait_id": data['portrait_id']},
-         to=room_id)
+    emit(
+        "player_portrait_selected",
+        {"player_name": data["player_name"], "portrait_id": data["portrait_id"]},
+        to=room_id,
+    )
 
 
 def define_rating(game: dict):
