@@ -138,7 +138,7 @@
 
                         <div class="col-auto"
                              v-for="p in room.players">
-                            <div class="portrait p-2"
+                            <div class="portrait p-2 rounded-4"
                                  :style="{'background-image': 'url(/static/portrait' + (portraitIds[p.name] || 0) + '.jpg)'}">
                                 <div>
                                     <p><span class="p-1"><strong>${ p.name }$</strong></span></p>
@@ -263,9 +263,9 @@
                 <div class="row mb-4">
                     <div class="col-auto mx-1"
                          v-for="pl in room.players">
-                        <div class="portrait border p-2"
+                        <div class="portrait border p-2 rounded-4"
                              :style="{'background-image': 'url(/static/portrait' + (portraitIds[pl.name] || 0) + '.jpg)'}"
-                             :class="{'border-info border-3': game.active_player == pl.name, 'border-secondary-subtle': game.active_player != pl.name, 'shadow': projectTeamMembersSelection[pl.name]}">
+                             :class="{'border-info border-5': game.active_player == pl.name, 'border-secondary-subtle': game.active_player != pl.name, 'shadow': projectTeamMembersSelection[pl.name]}">
 
                             <div>
                                 <p>
@@ -321,7 +321,7 @@
                                         <button type="button"
                                                 class="btn btn-primary"
                                                 @click="submitCardsSelection()"
-                                                :disabled="!selectedCards.length">Подтвердить выбор проекта</button>
+                                                :disabled="selectedCards.length !== 1">Подтвердить выбор проекта</button>
                                     </div>
                                 </div>
                             </div>
@@ -588,7 +588,6 @@
                         "initial_player_points": this.gameConfig.initialPlayerPoints,
                         "card_effect_visibility": this.gameConfig.cardEffectVisibility
                     });
-                    console.log('Game started!')
                 },
                 makeProjectDeposit(points) {
                     let payload = {
