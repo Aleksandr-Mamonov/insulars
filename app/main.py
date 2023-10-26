@@ -430,7 +430,10 @@ def handle_make_project_deposit(data):
         emit("move_started", payload, to=room_id)
     else:
         game, is_success = implement_project_result(game)
-        emit("round_result", {"is_success": is_success}, to=room_id)
+        game['latest_round_result'] = is_success
+        store_game(room_id, game)
+
+        emit("round_result", build_payload(room_id), to=room_id)
 
         next_round_n, game = start_next_round(game)
         game = apply_effects(game, game["effects_to_apply"])

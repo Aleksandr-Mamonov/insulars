@@ -642,7 +642,8 @@
                         vm.room = arg;
                     },
                     'round_result': function(arg) {
-                        vm.roundResults = arg.is_success;
+                        vm.room = arg;
+                        vm.roundResults = arg.game.latest_round_result;
                     },
                     'player_portrait_selected': function(arg) {
                         vm.room = arg;
