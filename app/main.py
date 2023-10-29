@@ -437,11 +437,14 @@ def handle_make_project_deposit(data):
 
         next_round_n, game = start_next_round(game)
         game = apply_effects(game, game["effects_to_apply"])
+
         if next_round_n is None:
             write_to_db("UPDATE rooms SET game=NULL, number_of_games=number_of_games+1 WHERE uid=:room_id", {"room_id": room_id})
 
             rating = define_rating(game)
-            emit("game_ended", {"rating": rating}, to=room_id)
+            payload = build_payload(room_id)
+            payload["rating"] = rating
+            emit("game_ended", payload, to=room_id)
         else:
             store_game(room_id, game)
             emit("round_started", build_payload(room_id), to=room_id)

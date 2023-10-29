@@ -149,23 +149,31 @@
         </div>
 
 
-        <div v-if="finalRating !== null" class="overlay">
-            <h2>Игра окончена!</h2>
-            <div v-for="rank in finalRating">${ rank[0] }$ - <points-badge :points="rank[1]"/></div>
+        <transition name="bounce">
+            <div v-if="showFinalResults === true" class="overlay">
+                <h2 class="mb-4">Игра окончена!</h2>
+                <div v-for="rank in finalRating">${ rank[0] }$ - <points-badge :points="rank[1]"/></div>
 
-            <button @click="finalRating = null; game = null">Закрыть</button>
-        </div>
+                <div class="mt-4">
+                    <button @click="showFinalResults = false" class="btn btn-primary">Закрыть</button>
+                </div>
+            </div>
+        </transition>
 
         <transition name="bounce">
             <div v-if="showRoundResults === true"
-                 class="overlay"
-                 :class="{'success': game.latest_round_result === true, 'failure': game.latest_round_result === false}">
-                Здание
-                <span v-if="game.latest_round_result === false"> <strong>не</strong> построено</span>
-                <span v-else> построено</span>
-                <div>
-                    <button @click="showRoundResults = false" class="btn btn-default">Закрыть</button>
+                 class="overlay mb-3"
+                 :class="{'success': roundResults === true, 'failure': roundResults === false}">
+                <div class="mr-5">
+                    Здание
+                    <span v-if="roundResults === false"> <strong>не</strong> построено</span>
+                    <span v-else> построено</span>
+
+                    <div class="mt-4">
+                        <button @click="showRoundResults = false" class="btn btn-primary">Закрыть</button>
+                    </div>
                 </div>
+
             </div>
          </transition>
 
@@ -516,7 +524,9 @@
 
                     config: {},
                     showRoundResults: ref(false),
+                    roundResults: ref(null),
                     finalRating: ref(null),
+                    showFinalResults: ref(false),
                     gameConfig: ref({
                         rounds: 10,
                         initialPlayerPoints: 10,
@@ -675,13 +685,16 @@
                     },
                     'round_result': function(arg) {
                         vm.room = arg;
+                        vm.roundResults = arg.game.latest_round_result;
                         vm.showRoundResults = true;
                     },
                     'player_portrait_selected': function(arg) {
                         vm.room = arg;
                     },
                     'game_ended': function(arg) {
+                        vm.room = arg;
                         vm.finalRating = arg.rating;
+                        vm.showFinalResults = true;
                     }
                 }
 
