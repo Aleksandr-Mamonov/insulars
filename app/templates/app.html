@@ -301,13 +301,22 @@
             </div>
         </div>
 
-        <div id="game-layout" v-if="room.game !== null">
+        <div id="game-layout" v-if="room.game !== null" class="pb-5">
             <div class="container">
                 <div class="row mb-3">
                     <div class="col">
-                         <h5>Ваш счет: <points-badge :points="game.all_players_points && game.all_players_points[playerName]" /></h5>
+                         <h5>
+                             <span>Ваш счет: <points-badge :points="game.all_players_points && game.all_players_points[playerName]" /></span>
+                             <span class="ms-3">
+                                <span v-for="effect in playerEffectsToApply">
+                                    <span v-if="effect.name == 'change_player_points'">
+                                        <points-badge :prolonged="true" :points="effect.payload.points" :signed="true" :duration="effect.payload.rounds_to_apply"/></span>
+                                    </span>
+                                </span>
+                             </span>
+                         </h5>
                          <p>
-                            <span>Раунд ${ game.round }$ / ${ game.rounds }$</span>
+                            <span>Раунд <i class="bi-hourglass-split"></i> ${ game.round }$ / ${ game.rounds }$</span>
                             <span v-if="roundStage === 0">, мэр выбирает проект </span>
                             <span v-if="roundStage === 1">, мэр выбирает команду </span>
                             <span v-if="roundStage === 2 && (!isPlayerProjectParticipant() || !isActivePlayer())">, ждем результатов строительства</span>
@@ -419,11 +428,13 @@
                     <div class="col">
                         <div v-if="roundStage === 2 && isPlayerProjectParticipant() && isActivePlayer()">
                             <label>Выберите, сколько вложить в проект: ${ playerProjectBid }$</label>
-                            <input type="range"
-                                   v-model="playerProjectBid"
-                                   min="0"
-                                   :max="game.all_players_points[playerName]" />
-
+                            <div class="my-4">
+                                <input type="range"
+                                       style="min-width: 300px;"
+                                       v-model="playerProjectBid"
+                                       min="0"
+                                       :max="game.all_players_points[playerName]" />
+                            </div>
                             <div class="row mt-3">
                                 <div class="col">
                                     <button type="button"
@@ -434,23 +445,6 @@
                         </div>
 
 
-                    </div>
-                </div>
-
-                <!-- Effects to apply -->
-                <div class="row justify-content-sm-center">
-                    <div class="col">
-                        <div v-if="game.effects_to_apply && game.effects_to_apply.length > 0">
-                            Действующие эффекты:
-                            <ul>
-                                <li v-for="effect in game.effects_to_apply">
-                                    <span v-if="effect.name == 'change_player_points'">
-                                        <span>Изменение очков: <points-badge :points="effect.payload.points" :signed="true" :duration="effect.payload.rounds_to_apply"/></span>
-                                        <span> для ${ effect.payload.players.join(', ') }$</span>
-                                    </span>
-                                </li>
-                            </ul>
-                        </div>
                     </div>
                 </div>
 
@@ -484,7 +478,7 @@
                         <div v-if="effect.name">
                             <div v-if="effect.name == 'change_player_points'">
                                 <div>
-                                    ${ buildCategoriesDescription(effect.payload.categories_of_players) }$ получает <points-badge :signed="true" :points="effect.payload.points" :duration="effect.payload.rounds_to_apply"/>
+                                    ${ buildCategoriesDescription(effect.payload.categories_of_players) }$ получает <points-badge :prolonged="effect.payload.rounds_to_apply > 1" :signed="true" :points="effect.payload.points" :duration="effect.payload.rounds_to_apply"/>
                                 </div>
                             </div>
                             <div v-if="effect.name == 'give_overpayment'">
@@ -550,6 +544,11 @@
                 },
                 player() {
                     return this.room.players?.find(p => p.name == this.playerName) || {}
+                },
+                playerEffectsToApply() {
+                    return (this.game.effects_to_apply
+                           && this.game.effects_to_apply.length > 0
+                           && this.game.effects_to_apply.filter(ef => ef.payload.players.includes(this.playerName))) || []
                 },
                 portraitIds() {
                     let pls = this.room.players || [];
@@ -732,8 +731,8 @@
             template: '#TableCard',
         });
         app.component('PointsBadge', {
-            props: ['points', 'duration', 'signed'],
-            template: '<span class="badge rounded-pill bg-warning text-dark"><strong><span v-if="signed && points > 0">+</span>${ points }$</strong><span v-if="duration > 1">&nbsp;&nbsp;/&nbsp;&nbsp;${ duration }$&nbsp;<i class="bi-hourglass-top"></i></span></span>',
+            props: ['points', 'duration', 'prolonged', 'signed'],
+            template: '<span class="badge rounded-pill bg-warning text-dark"><strong><span v-if="signed && points > 0">+</span>${ points }$</strong><span v-if="prolonged"><span v-if="duration">&nbsp;на&nbsp;${ duration }$&nbsp;<i class="bi-hourglass-split"></i></span></span></span>',
         });
 
         app.config.compilerOptions.delimiters = ["${", "}$"];
