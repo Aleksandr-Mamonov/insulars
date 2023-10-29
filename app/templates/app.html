@@ -447,10 +447,7 @@
                 </div>
 
                 <div class="row py-3" v-if="succeedCards.length > 0">
-                    <h6>Построены</h6>
-                    <ul>
-                        <li v-for="card in succeedCards">${ card.name }$</li>
-                    </ul>
+                    <p>Построены: ${ succeedCards.map(c => c.name).join(', ') }$</p>
                 </div>
 
             </div>
