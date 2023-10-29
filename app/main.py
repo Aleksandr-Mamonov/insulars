@@ -271,6 +271,7 @@ def handle_game_start(data):
         "effects_to_apply": [],
         "rounds": int(data["rounds"]),
         "card_effect_visibility": data["card_effect_visibility"],
+        "history": [],
     }
 
     rm = select_one_from_db("SELECT number_of_games FROM rooms WHERE uid=:room_id", {"room_id": room_id})
@@ -370,7 +371,10 @@ def implement_project_result(game: dict):
     is_success = points_collected_by_team >= points_to_succeed
     game["round_delta"] = points_collected_by_team - points_to_succeed
     for card in game["cards_selected_by_leader"]:
-        # print(card)
+        game['history'].append({
+            'card': card,
+            'succeeded': is_success
+        })
         effects = json.loads(card["on_success" if is_success else "on_failure"])
         for effect in effects:
             if effect:

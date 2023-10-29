@@ -443,9 +443,14 @@
                                 </div>
                             </div>
                         </div>
-
-
                     </div>
+                </div>
+
+                <div class="row py-3" v-if="succeedCards.length > 0">
+                    <h6>Построены</h6>
+                    <ul>
+                        <li v-for="card in succeedCards">${ card.name }$</li>
+                    </ul>
                 </div>
 
             </div>
@@ -549,6 +554,9 @@
                     return (this.game.effects_to_apply
                            && this.game.effects_to_apply.length > 0
                            && this.game.effects_to_apply.filter(ef => ef.payload.players.includes(this.playerName))) || []
+                },
+                succeedCards() {
+                    return (this.game.history && this.game.history.filter(log => log.succeeded).map(log => log.card)) || []
                 },
                 portraitIds() {
                     let pls = this.room.players || [];
