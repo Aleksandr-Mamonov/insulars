@@ -45,7 +45,6 @@
             z-index: 100;
             min-width: 100%;
             min-height: 100%;
-            border: rgb(0, 17, 255) 1px solid;
             background-color: lavender;
         }
 
@@ -93,6 +92,36 @@
         #portrait-options img {
             width: 220px;
         }
+
+        .bounce-enter-active {
+          animation: bounce-in 0.2s ease;
+        }
+        .bounce-leave-active {
+          animation: bounce-in 0.2s reverse;
+        }
+        @keyframes bounce-in {
+          0% {
+            transform: scale(0.5);
+            opacity: 0;
+          }
+          50% {
+            transform: scale(0.75);
+            opacity: 0.2;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+
+        .overlay.success {
+            background: rgb(52,210,15);
+            background: radial-gradient(circle, rgba(52,210,15,1) 0%, rgba(5,184,29,1) 56%, rgba(0,255,98,0.9332107843137255) 100%);
+        }
+        .overlay.failure {
+            background: rgb(210,60,15);
+            background: radial-gradient(circle, rgba(210,60,15,1) 0%, rgba(184,125,5,1) 52%, rgba(255,154,0,0.8323704481792717) 100%);
+        }
     </style>
 </head>
 <!--todo - leader can not select himself for project team-->
@@ -127,15 +156,18 @@
             <button @click="finalRating = null; game = null">Закрыть</button>
         </div>
 
-        <div v-if="roundResults !== null" class="overlay">
-            Здание
-            <span v-if="roundResults === false" style="color: red"> не построено</span>
-            <span v-if="roundResults !== false" style="color: green">построено</span>
-
-            <div>
-                <button @click="roundResults = null">Закрыть</button>
+        <transition name="bounce">
+            <div v-if="showRoundResults === true"
+                 class="overlay"
+                 :class="{'success': game.latest_round_result === true, 'failure': game.latest_round_result === false}">
+                Здание
+                <span v-if="game.latest_round_result === false"> <strong>не</strong> построено</span>
+                <span v-else> построено</span>
+                <div>
+                    <button @click="showRoundResults = false" class="btn btn-default">Закрыть</button>
+                </div>
             </div>
-        </div>
+         </transition>
 
         <div id="lobby-layout" v-if="room.game === null" class="container">
             <div class="row">
@@ -483,7 +515,7 @@
                     roomId: '{{ room_id }}',
 
                     config: {},
-                    roundResults: ref(null),
+                    showRoundResults: ref(false),
                     finalRating: ref(null),
                     gameConfig: ref({
                         rounds: 10,
@@ -643,7 +675,7 @@
                     },
                     'round_result': function(arg) {
                         vm.room = arg;
-                        vm.roundResults = arg.game.latest_round_result;
+                        vm.showRoundResults = true;
                     },
                     'player_portrait_selected': function(arg) {
                         vm.room = arg;
