@@ -180,9 +180,6 @@ def generate_cards():
     return cards
 
 
-pprint(generate_cards())
-
-
 CARDS = [
     {
         "name": "Station",
@@ -793,3 +790,4 @@ CARDS = [
         ],
     },
 ]
+NEW_CARDS = generate_cards()

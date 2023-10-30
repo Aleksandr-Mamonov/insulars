@@ -2,7 +2,7 @@ import json
 import sqlite3
 
 from .database import write_to_db
-from .cards import CARDS
+from .cards import NEW_CARDS
 
 
 def init_db():
@@ -16,6 +16,8 @@ def init_db():
     )
     cur.execute(
         """CREATE TABLE IF NOT EXISTS cards (
+        family,
+        tier,
         name UNIQUE,
         points_to_succeed,
         min_team,
@@ -37,13 +39,15 @@ def init_db():
         available BOOLEAN DEFAULT TRUE
     )"""
     )
-    for card in CARDS:
+    for card in NEW_CARDS:
         write_to_db(
             """
-        INSERT INTO cards (name, points_to_succeed, min_team, max_team, on_success, on_failure)
-        VALUES (:name, :points_to_succeed, :min_team, :max_team, :on_success, :on_failure)
+        INSERT INTO cards (family, tier, name, points_to_succeed, min_team, max_team, on_success, on_failure)
+        VALUES (:family, :tier, :name, :points_to_succeed, :min_team, :max_team, :on_success, :on_failure)
         """,
             {
+                "family": card["family"],
+                "tier": card["tier"],
                 "name": card["name"],
                 "points_to_succeed": card["points_to_succeed"],
                 "min_team": card["min_team"],
