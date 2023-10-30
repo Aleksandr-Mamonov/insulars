@@ -11,6 +11,7 @@ from .config import (
     CARDS_ON_TABLE_IN_ROUND,
 )
 from .database import select_one_from_db, select_all_from_db, write_to_db
+from .deck import default_cards
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
@@ -59,8 +60,7 @@ def build_deck(game_id: str, cards: list, game_rounds: int):
                 "max_team": card["max_team"],
                 "on_success": card["on_success"],
                 "on_failure": card["on_failure"],
-            },
-        )
+            })
 
 
 def draw_random_card_from_deck(game_id: str) -> dict:
@@ -99,12 +99,14 @@ def draw_random_card_from_deck(game_id: str) -> dict:
 def rotate_players_order_in_round(game: dict):
     """Rotate players order in round, set active_player and leader in round accordingly."""
     new_order = game["players_order_in_round"]
+
     # Rotate players order for next round
     new_order.append(new_order.pop(0))
     game["players_order_in_round"] = new_order
     game["players_to_move"] = new_order
     game["active_player"] = new_order[0]
     game["leader"] = new_order[0]
+
     return game
 
 
@@ -238,56 +240,30 @@ def handle_player_enter(data):
     room_id = data["room_id"]
     join_room(room_id)
 
-    players = select_all_from_db(
-        """
-    SELECT
-        rp.player_name, 
-        r.owner=rp.player_name AS is_owner
-    FROM room_players AS rp
-    INNER JOIN rooms AS r ON r.uid=rp.room_id
-    WHERE rp.room_id=:room_id
-    """,
-        {"room_id": room_id},
-    )
-    game = get_game(room_id)
-    emit(
-        "room_entered",
-        {
-            "players": players,
-            "config": {"MIN_PLAYERS": MIN_PLAYERS, "MAX_PLAYERS": MAX_PLAYERS},
-            "game": game,
-        },
-        to=room_id,
-    )
+    emit("room_entered", build_payload(room_id), to=room_id)
 
 
 @socketio.on("start_game")
 def handle_game_start(data):
     room_id = data["room_id"]
-    result = select_all_from_db(
-        "SELECT player_name FROM room_players WHERE room_id=:room_id",
-        {"room_id": room_id},
-    )
-    players = [i["player_name"] for i in result]
-    all_players_points = {
-        i["player_name"]: int(data["initial_player_points"]) for i in result
-    }
-
     game_id = str(uuid.uuid4())
-    build_deck(game_id, data["cards"], int(data["rounds"]))
 
-    cards_on_table = [
-        draw_random_card_from_deck(game_id) for _ in range(CARDS_ON_TABLE_IN_ROUND)
-    ]
+    players = select_all_from_db("SELECT player_name FROM room_players WHERE room_id=:room_id", {"room_id": room_id})
+
+    build_deck(game_id, data["cards"] or default_cards(), int(data["rounds"]))
+
+    cards_on_table = [draw_random_card_from_deck(game_id) for _ in range(CARDS_ON_TABLE_IN_ROUND)]
+
+    player_names = [pl["player_name"] for pl in players]
     game = {
         "game_id": game_id,
         "round": 1,
-        "players": tuple(players),
-        "players_order_in_round": players,
-        "players_to_move": players,
-        "active_player": players[0],
-        "leader": players[0],
-        "all_players_points": all_players_points,
+        "players": tuple(player_names),
+        "players_order_in_round": player_names,
+        "players_to_move": player_names,
+        "active_player": player_names[0],
+        "leader": player_names[0],
+        "all_players_points": {pln: int(data["initial_player_points"]) for pln in player_names},
         "round_common_account_points": 0,
         "cards_on_table": cards_on_table,
         "cards_selected_by_leader": [],
@@ -295,28 +271,22 @@ def handle_game_start(data):
         "effects_to_apply": [],
         "rounds": int(data["rounds"]),
         "card_effect_visibility": data["card_effect_visibility"],
+        "history": [],
     }
-    number_of_games_in_room = select_one_from_db(
-        "SELECT number_of_games FROM rooms WHERE uid=:room_id",
-        {"room_id": data["room_id"]},
-    )["number_of_games"]
 
-    if number_of_games_in_room > 0:
-        for rotation in range(number_of_games_in_room % len(players)):
+    rm = select_one_from_db("SELECT number_of_games FROM rooms WHERE uid=:room_id", {"room_id": room_id})
+    if rm["number_of_games"] > 0:
+        for rotation in range(rm["number_of_games"] % len(player_names)):
             game = rotate_players_order_in_round(game)
 
-    write_to_db(
-        "UPDATE rooms SET game=:game WHERE uid=:room_id",
-        {"game": json.dumps(game), "room_id": room_id},
-    )
+    write_to_db("UPDATE rooms SET game=:game WHERE uid=:room_id", {"game": json.dumps(game), "room_id": room_id})
 
-    emit("game_started", {"game": game}, to=data["room_id"])
+    emit("game_started", build_payload(room_id), to=data["room_id"])
 
 
 def change_player_points(game: dict, player_name, points: int):
-    game["all_players_points"][player_name] = max(
-        game["all_players_points"][player_name] + points, 0
-    )
+    game["all_players_points"][player_name] = max(game["all_players_points"][player_name] + points, 0)
+
     return game
 
 
@@ -339,13 +309,12 @@ def handle_select_cards_from_table(data):
 
     game["cards_on_table"].clear()
     store_game(room_id, game)
-    emit("cards_for_round_selected", {"game": game}, to=room_id)
+
+    emit("cards_for_round_selected", build_payload(room_id), to=room_id)
 
 
 def get_game(room_id):
-    result = select_one_from_db(
-        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": room_id}
-    )
+    result = select_one_from_db("SELECT game FROM rooms WHERE uid=:room_id", {"room_id": room_id})
 
     return json.loads(result["game"]) if result["game"] else None
 
@@ -402,7 +371,10 @@ def implement_project_result(game: dict):
     is_success = points_collected_by_team >= points_to_succeed
     game["round_delta"] = points_collected_by_team - points_to_succeed
     for card in game["cards_selected_by_leader"]:
-        # print(card)
+        game['history'].append({
+            'card': card,
+            'succeeded': is_success
+        })
         effects = json.loads(card["on_success" if is_success else "on_failure"])
         for effect in effects:
             if effect:
@@ -451,27 +423,35 @@ def handle_make_project_deposit(data):
     game = get_game(room_id)
     game = change_player_points(game, data["player_name"], -points)
     game = change_project_points(game, points)
-    emit("project_deposited", {"game": game}, to=room_id)
-    emit("player_points_changed", {"game": game}, to=room_id)
+
     game, has_player_to_move_next = move_to_next_player(game)
     store_game(room_id, game)
+
+    payload = build_payload(room_id)
+    emit("project_deposited", payload, to=room_id)
+    emit("player_points_changed", payload, to=room_id)
     if has_player_to_move_next:
-        emit("move_started", {"game": game}, to=room_id)
+        emit("move_started", payload, to=room_id)
     else:
         game, is_success = implement_project_result(game)
-        emit("round_result", {"is_success": is_success}, to=room_id)
+        game['latest_round_result'] = is_success
+        store_game(room_id, game)
+
+        emit("round_result", build_payload(room_id), to=room_id)
+
         next_round_n, game = start_next_round(game)
         game = apply_effects(game, game["effects_to_apply"])
+
         if next_round_n is None:
-            write_to_db(
-                "UPDATE rooms SET game=NULL, number_of_games=number_of_games+1 WHERE uid=:room_id",
-                {"room_id": room_id},
-            )
+            write_to_db("UPDATE rooms SET game=NULL, number_of_games=number_of_games+1 WHERE uid=:room_id", {"room_id": room_id})
+
             rating = define_rating(game)
-            emit("game_ended", {"rating": rating}, to=room_id)
+            payload = build_payload(room_id)
+            payload["rating"] = rating
+            emit("game_ended", payload, to=room_id)
         else:
             store_game(room_id, game)
-            emit("round_started", {"game": game}, to=room_id)
+            emit("round_started", build_payload(room_id), to=room_id)
 
 
 @socketio.on("select_team_for_round")
@@ -485,18 +465,18 @@ def handle_select_team_for_round(data):
     "selected_players": [player_name1, player_name2 ...],
     }
     """
-    game = get_game(data["room_id"])
+    room_id = data["room_id"]
+    game = get_game(room_id)
+
     # Check whether card(s) for a given round were selected already or not
     if game["cards_selected_by_leader"] == []:
         # TODO
         raise
+
     # How many min and max players should be in a team
-    min_players_in_team = min(
-        [int(card["min_team"]) for card in game["cards_selected_by_leader"]]
-    )
-    max_players_in_team = max(
-        [int(card["max_team"]) for card in game["cards_selected_by_leader"]]
-    )
+    min_players_in_team = min([int(card["min_team"]) for card in game["cards_selected_by_leader"]])
+    max_players_in_team = max([int(card["max_team"]) for card in game["cards_selected_by_leader"]])
+
     # Check whether leader selected appropriate number of players
     if min_players_in_team <= len(data["selected_players"]) <= max_players_in_team:
         game["team"] = data["selected_players"]
@@ -506,8 +486,9 @@ def handle_select_team_for_round(data):
         raise
 
     game, _ = move_to_next_player(game)
-    store_game(data["room_id"], game)
-    emit("team_for_round_selected", {"game": game}, to=data["room_id"])
+    store_game(room_id, game)
+
+    emit("team_for_round_selected", build_payload(room_id), to=room_id)
 
 
 @socketio.on("select_player_portrait")
@@ -521,20 +502,14 @@ def handle_portrait_select(data):
     """
     room_id = data["room_id"]
 
-    write_to_db(
-        "UPDATE room_players SET portrait_id=:portrait_id WHERE room_id=:room_id AND player_name=:player_name",
-        {
-            "portrait_id": data["portrait_id"],
-            "room_id": room_id,
-            "player_name": data["player_name"],
-        },
-    )
+    sql = "UPDATE room_players SET portrait_id=:portrait_id WHERE room_id=:room_id AND player_name=:player_name"
+    write_to_db(sql, {
+        "room_id": room_id,
+        "portrait_id": data["portrait_id"],
+        "player_name": data["player_name"],
+    })
 
-    emit(
-        "player_portrait_selected",
-        {"player_name": data["player_name"], "portrait_id": data["portrait_id"]},
-        to=room_id,
-    )
+    emit("player_portrait_selected", build_payload(room_id), to=room_id)
 
 
 def define_rating(game: dict):
@@ -546,6 +521,30 @@ def define_rating(game: dict):
     rating = sorted(all_players_points.items(), key=lambda item: int(item[1]))[::-1]
 
     return rating
+
+
+def build_payload(room_id):
+    sql_fetch_players = """
+    SELECT
+        rp.player_name as name, 
+        rp.portrait_id,
+        r.owner=rp.player_name AS is_owner
+    FROM room_players AS rp
+    INNER JOIN rooms AS r ON r.uid=rp.room_id
+    WHERE rp.room_id=:room_id"""
+
+    players = select_all_from_db(sql_fetch_players, {"room_id": room_id})
+
+    game = get_game(room_id)
+
+    return {
+        "players": players,
+        "config": {
+            "MIN_PLAYERS": MIN_PLAYERS,
+            "MAX_PLAYERS": MAX_PLAYERS
+        },
+        "game": game,
+    }
 
 
 if __name__ == "__main__":

@@ -8,12 +8,8 @@ from .cards import NEW_CARDS
 def init_db():
     con = sqlite3.connect("insulars.db")
     cur = con.cursor()
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS rooms(uid, owner, game, number_of_games INTEGER DEFAULT 0)"
-    )
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS room_players(room_id, player_name, portrait_id)"
-    )
+    cur.execute("CREATE TABLE IF NOT EXISTS rooms(uid, owner, game, number_of_games INTEGER DEFAULT 0)")
+    cur.execute("CREATE TABLE IF NOT EXISTS room_players(room_id, player_name, portrait_id)")
     cur.execute(
         """CREATE TABLE IF NOT EXISTS cards (
         family,
@@ -39,6 +35,7 @@ def init_db():
         available BOOLEAN DEFAULT TRUE
     )"""
     )
+
     for card in NEW_CARDS:
         write_to_db(
             """
