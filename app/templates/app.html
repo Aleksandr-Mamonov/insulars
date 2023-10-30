@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -13,6 +15,9 @@
         crossorigin="anonymous"></script>
 
     <style>
+        .font-bigger {
+            font-size: 1.5rem;
+        }
         .card {
             min-width: 250px;
             width: 250px;
@@ -40,7 +45,6 @@
             z-index: 100;
             min-width: 100%;
             min-height: 100%;
-            border: rgb(0, 17, 255) 1px solid;
             background-color: lavender;
         }
 
@@ -65,6 +69,14 @@
             max-width: 150px;
         }
 
+        .portrait.active {
+            border-radius: 20%;
+            box-shadow:
+              0 0 30px #f0f,
+              -5px 0 8px #0ff,
+              5px 0 8px #0ff;
+        }
+
         .portrait p {
             overflow-wrap: break-word;
         }
@@ -80,6 +92,36 @@
         #portrait-options img {
             width: 220px;
         }
+
+        .bounce-enter-active {
+          animation: bounce-in 0.2s ease;
+        }
+        .bounce-leave-active {
+          animation: bounce-in 0.2s reverse;
+        }
+        @keyframes bounce-in {
+          0% {
+            transform: scale(0.5);
+            opacity: 0;
+          }
+          50% {
+            transform: scale(0.75);
+            opacity: 0.2;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+
+        .overlay.success {
+            background: rgb(52,210,15);
+            background: radial-gradient(circle, rgba(52,210,15,1) 0%, rgba(5,184,29,1) 56%, rgba(0,255,98,0.9332107843137255) 100%);
+        }
+        .overlay.failure {
+            background: rgb(210,60,15);
+            background: radial-gradient(circle, rgba(210,60,15,1) 0%, rgba(184,125,5,1) 52%, rgba(255,154,0,0.8323704481792717) 100%);
+        }
     </style>
 </head>
 <!--todo - leader can not select himself for project team-->
@@ -93,7 +135,7 @@
                 </div>
 
                 <div class="col text-end">
-                    <span style="color: #fef;" v-if="game !== null" @click="debug = !debug">debug</span>
+                    <span style="color: #fef;" v-if="room.game" @click="debug = !debug">debug</span>
                 </div>
             </div>
 
@@ -107,24 +149,35 @@
         </div>
 
 
-        <div v-if="finalRating !== null" class="overlay">
-            <h2>Игра окончена!</h2>
-            <div v-for="rank in finalRating">${ rank[0] }$ - &#129689; ${ rank[1] }$</div>
+        <transition name="bounce">
+            <div v-if="showFinalResults === true" class="overlay">
+                <h2 class="mb-4">Игра окончена!</h2>
+                <div v-for="rank in finalRating">${ rank[0] }$ - <points-badge :points="rank[1]"/></div>
 
-            <button @click="finalRating = null; game = null">Закрыть</button>
-        </div>
-
-        <div v-if="roundResults !== null" class="overlay">
-            Здание
-            <span v-if="roundResults === false" style="color: red"> не построено</span>
-            <span v-if="roundResults !== false" style="color: green">построено</span>
-
-            <div>
-                <button @click="roundResults = null">Закрыть</button>
+                <div class="mt-4">
+                    <button @click="showFinalResults = false" class="btn btn-primary">Закрыть</button>
+                </div>
             </div>
-        </div>
+        </transition>
 
-        <div id="lobby-layout" v-if="game === null" class="container">
+        <transition name="bounce">
+            <div v-if="showRoundResults === true"
+                 class="overlay mb-3"
+                 :class="{'success': roundResults === true, 'failure': roundResults === false}">
+                <div class="mr-5">
+                    Здание
+                    <span v-if="roundResults === false"> <strong>не</strong> построено</span>
+                    <span v-else> построено</span>
+
+                    <div class="mt-4">
+                        <button @click="showRoundResults = false" class="btn btn-primary">Закрыть</button>
+                    </div>
+                </div>
+
+            </div>
+         </transition>
+
+        <div id="lobby-layout" v-if="room.game === null" class="container">
             <div class="row">
                 <div class="col">
                     <h1>Лобби</h1>
@@ -137,10 +190,11 @@
                         </div>
 
                         <div class="col-auto"
-                             v-for="p in players">
-                            <div class="portrait p-2" :style="{'background-image': 'url(/static/portrait' + (playerPortraits[p.player_name] || 0) + '.jpg)'}">
+                             v-for="p in room.players">
+                            <div class="portrait p-2 rounded-4"
+                                 :style="{'background-image': 'url(/static/portrait' + (portraitIds[p.name] || 0) + '.jpg)'}">
                                 <div>
-                                    <p><span class="p-1"><strong>${ p.player_name }$</strong></span></p>
+                                    <p><span class="p-1"><strong>${ p.name }$</strong></span></p>
                                 </div>
                             </div>
                         </div>
@@ -150,14 +204,16 @@
                                     @click="showPortraitOptions = !showPortraitOptions"
                                     class="btn btn-sm btn-outline-secondary">${ !showPortraitOptions ? 'Выбрать портрет' : 'Готово' }$</button>
 
-                            <div v-if="showPortraitOptions === true" id="portrait-options" class="mt-3">
+                            <div v-if="showPortraitOptions === true"
+                                 id="portrait-options"
+                                 class="mt-3">
                                 {% for i in range(4) %}
                                     <div class="row">
                                         <div class="col">
                                         {% for j in range(4) %}
                                             <img src="{{ url_for('static', filename='portrait' ~ ((i * 4) + 1 + j) ~ '.jpg') }}"
                                                  class="border border-5"
-                                                 :class="{'border-info': portrait === {{ (i * 4) + 1 + j }}}"
+                                                 :class="{'border-info': player.portrait_id === {{ (i * 4) + 1 + j }}}"
                                                  @click="selectPortrait({{ (i * 4) + 1 + j }})">
                                         {% endfor %}
                                         </div>
@@ -167,7 +223,7 @@
                         </div>
 
                         <div class="col-12 my-3">
-                            <button :disabled="players.length < config.MIN_PLAYERS || players.length > config.MAX_PLAYERS"
+                            <button :disabled="room.players.length < room.config.MIN_PLAYERS || room.players.length > room.config.MAX_PLAYERS"
                                     v-if="player.is_owner"
                                     class="btn btn-primary"
                                     @click="startGame">Начать игру</button>
@@ -245,56 +301,80 @@
             </div>
         </div>
 
-        <div id="game-layout" v-if="game !== null">
+        <div id="game-layout" v-if="room.game !== null" class="pb-5">
             <div class="container">
-                <div class="row">
+                <div class="row mb-3">
                     <div class="col">
-                         <h5>У вас очков: &#129689;<strong>${game.all_players_points[playerName]}$</strong></h5>
-
-                        <p>Раунд ${game.round}$ <span style="color: #ccc">/ ${game.rounds}$</p>
-                        <p>Сейчас ходит ${ game.active_player }$</p>
+                         <h5>
+                             <span>Ваш счет: <points-badge :points="game.all_players_points && game.all_players_points[playerName]" /></span>
+                             <span class="ms-3">
+                                <span v-for="effect in playerEffectsToApply">
+                                    <span v-if="effect.name == 'change_player_points'">
+                                        <points-badge :prolonged="true" :points="effect.payload.points" :signed="true" :duration="effect.payload.rounds_to_apply"/></span>
+                                    </span>
+                                </span>
+                             </span>
+                         </h5>
+                         <p>
+                            <span>Раунд <i class="bi-hourglass-split"></i> ${ game.round }$ / ${ game.rounds }$</span>
+                            <span v-if="roundStage === 0">, мэр выбирает проект </span>
+                            <span v-if="roundStage === 1">, мэр выбирает команду </span>
+                            <span v-if="roundStage === 2 && (!isPlayerProjectParticipant() || !isActivePlayer())">, ждем результатов строительства</span>
+                        </p>
                     </div>
                 </div>
 
                 <!-- Players list -->
                 <div class="row mb-4">
                     <div class="col-auto mx-1"
-                         v-for="plName in game.players">
-                        <div class="portrait border p-2"
-                             :style="{'background-image': 'url(/static/portrait' + (playerPortraits[plName] || 0) + '.jpg)'}"
-                             :class="{'border-info border-3': game.active_player == plName, 'border-secondary-subtle': game.active_player != plName, 'shadow': projectTeamMembersSelection[plName]}">
+                         v-for="pl in room.players">
+                        <div class="portrait border p-2 rounded-4"
+                             :style="{'background-image': 'url(/static/portrait' + (portraitIds[pl.name] || 0) + '.jpg)'}"
+                             :class="{'active border-info border-5': game.active_player == pl.name, 'border-secondary-subtle': game.active_player != pl.name, 'shadow': projectTeamMembersSelection[pl.name]}">
 
                             <div>
                                 <p>
                                     <input type="checkbox"
                                        style="width: 25px; height: 25px;"
-                                       :disabled="(selectedProjectTeamMembers.length >= projectTeamMaxMembers && !selectedProjectTeamMembers.includes(plName))"
-                                       v-model="projectTeamMembersSelection[plName]"
-                                       v-if="isLeader() && roundStage === 1 && game.leader !== plName">
-                                    <span class="p-1"><strong><span v-if="plName == game.leader">&#128081;</span><span v-if="game.team && game.team.includes(plName)">&#128119;</span>${ plName }$</strong></span>
+                                       :disabled="(selectedProjectTeamMembers.length >= projectTeamMaxMembers && !selectedProjectTeamMembers.includes(pl.name))"
+                                       v-model="projectTeamMembersSelection[pl.name]"
+                                       v-if="isLeader() && roundStage === 1 && game.leader !== pl.name">
+                                    <span class="p-1">
+                                        <strong>
+                                            ${ pl.name }$
+                                        </strong>
+                                    </span>
+
+                                    <span class="p-1 m-1 text-white bg-primary" v-if="pl.name == game.leader">мэр</span>
+                                    <span class="p-1 m-1 text-white bg-success" v-if="game.team && game.team.includes(pl.name)">команда</span>
                                 </p>
                             </div>
+
                         </div>
                     </div>
+
                     <div v-if="isLeader() && roundStage === 1">
                         <div class="row mt-3">
                             <div class="col">
-                                <button type="button" class="btn btn-primary" @click="submitProjectTeamSelection() && projectTeamMembersSelection.length > 0">Подтвердить выбор команды</button>
+                                <button type="button"
+                                        class="btn btn-primary"
+                                        @click="submitProjectTeamSelection() && projectTeamMembersSelection.length > 0">Подтвердить выбор команды</button>
                             </div>
                         </div>
                     </div>
+
                 </div>
 
                 <!-- Cards -->
-                <div class="row justify-content-sm-center bg-gradient bg-light py-4 shadow">
-                    <div class="col text-center">
+                <div class="row justify-content-sm-center bg-gradient py-4">
+                    <div class="col">
                         <div v-if="game.cards_on_table && game.cards_on_table.length > 0">
                             <div v-if="isLeader()">
                                 <div class="row">
                                     <div class="col">
-                                        <table-card @click="toggleCard(card)"
+                                        <table-card @click="selectedCard = card.card_id"
                                             :card="card"
-                                            :class="{'border-3 shadow-lg border-info': isCardSelected(card)}"
+                                            :class="{'border-3 shadow-lg border-info': selectedCard && (selectedCard === card.card_id)}"
                                             v-for="card in game.cards_on_table"
                                             :key="card.card_id"
                                             :effects-visibility="game.card_effect_visibility"
@@ -308,7 +388,7 @@
                                         <button type="button"
                                                 class="btn btn-primary"
                                                 @click="submitCardsSelection()"
-                                                :disabled="!selectedCards.length">Подтвердить выбор проекта</button>
+                                                :disabled="!selectedCard">Подтвердить выбор проекта</button>
                                     </div>
                                 </div>
                             </div>
@@ -346,21 +426,15 @@
                 <!-- Current state notification -->
                 <div class="row justify-content-sm-center py-3">
                     <div class="col">
-                        <div v-if="roundStage === 1">
-                            <p>Лидер выбирает команду... </p>
-                        </div>
-
-                        <template v-if="isActivePlayer()">
-                            <b>Ваш ход!</b>
-                        </template>
-
                         <div v-if="roundStage === 2 && isPlayerProjectParticipant() && isActivePlayer()">
                             <label>Выберите, сколько вложить в проект: ${ playerProjectBid }$</label>
-                            <input type="range"
-                                   v-model="playerProjectBid"
-                                   min="0"
-                                   :max="game.all_players_points[playerName]" />
-
+                            <div class="my-4">
+                                <input type="range"
+                                       style="min-width: 300px;"
+                                       v-model="playerProjectBid"
+                                       min="0"
+                                       :max="game.all_players_points[playerName]" />
+                            </div>
                             <div class="row mt-3">
                                 <div class="col">
                                     <button type="button"
@@ -369,46 +443,29 @@
                                 </div>
                             </div>
                         </div>
-
-                        <div v-if="roundStage === 2 && (!isPlayerProjectParticipant() || !isActivePlayer())">
-                            <p>Ждем результатов строительства</p>
-                        </div>
                     </div>
                 </div>
 
-                <!-- Effects to apply -->
-                <div class="row justify-content-sm-center">
-                    <div class="col">
-                        <div v-if="game.effects_to_apply && game.effects_to_apply.length > 0">
-                            Действующие эффекты:
-                            <ul>
-                                <li v-for="effect in game.effects_to_apply">
-                                    <span v-if="effect.name == 'change_player_points'">
-                                        <span>Изменение очков: &#129689;&nbsp;<span v-if="effect.payload.points > 0">+</span>${effect.payload.points}$</span>
-                                        <span>
-                                            &nbsp;/&nbsp;&#8987;&nbsp;${ effect.payload.rounds_to_apply }$
-                                        </span>
-                                        <span> для ${ effect.payload.players.join(', ') }$</span>
-                                    </span>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
+                <div class="row py-3" v-if="succeedCards.length > 0">
+                    <p>Построены: ${ succeedCards.map(c => c.name).join(', ') }$</p>
                 </div>
 
             </div>
-
         </div>
     </div>
 
     <template id="TableCard">
         <div class="card shadow-sm mx-3 border-1 py-4">
             <h6>${ card.name }$</h6>
-            <p>&#128100; ${ card.min_team }$ - ${ card.max_team }$</p>
-            <p>Нужно собрать &#129689; ${ card.points_to_succeed }$</p>
+            <p class="font-bigger">
+                <span><i class="bi-person-fill-add me-2"></i></span>
+                <span v-if="card.min_team != card.max_team">${ card.min_team }$ - ${ card.max_team }$</span>
+                <span v-else>${ card.min_team }$</span>
+            </p>
+            <p>Нужно собрать <points-badge :points="card.points_to_succeed"/></p>
 
             <div v-for="condition in ['on_success', 'on_failure']"
-                 class="card-effect py-3"
+                 class="card-effect py-3 bg-gradient"
                  :set="effects = parseCardEffect(card[condition])"
                  :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
 
@@ -423,9 +480,7 @@
                         <div v-if="effect.name">
                             <div v-if="effect.name == 'change_player_points'">
                                 <div>
-                                    ${ buildCategoriesDescription(effect.payload.categories_of_players) }$ получает
-                                    <span>&#129689;&nbsp;<span v-if="effect.payload.points > 0">+</span>${ effect.payload.points }$</span>
-                                    <span v-if="effect.payload.rounds_to_apply > 1"> / &#8987;&nbsp;${ effect.payload.rounds_to_apply }$</span>
+                                    ${ buildCategoriesDescription(effect.payload.categories_of_players) }$ получает <points-badge :prolonged="effect.payload.rounds_to_apply > 1" :signed="true" :points="effect.payload.points" :duration="effect.payload.rounds_to_apply"/>
                                 </div>
                             </div>
                             <div v-if="effect.name == 'give_overpayment'">
@@ -453,20 +508,21 @@
         const app = createApp({
             setup() {
                 return {
+                    room: ref({}),
+
                     showPortraitOptions: ref(false),
-                    playerPortraits: ref({}),
-                    portrait: ref(0),
                     debug: ref(false),
-                    selectedCards: ref([]),
+                    selectedCard: ref(null),
                     playerProjectBid: ref(0),
                     projectTeamMembersSelection: ref({}),
                     playerName: '{{ player_name }}',
                     roomId: '{{ room_id }}',
-                    players: ref([]),
+
                     config: {},
-                    game: ref(null),
+                    showRoundResults: ref(false),
                     roundResults: ref(null),
                     finalRating: ref(null),
+                    showFinalResults: ref(false),
                     gameConfig: ref({
                         rounds: 10,
                         initialPlayerPoints: 10,
@@ -481,621 +537,33 @@
                             }
                         }
                     }),
-                    cardDeck: ref([
-                        {
-                                "name": "Station",
-                                "points_to_succeed": 20,
-                                "min_team": 2,
-                                "max_team": 2,
-                                "on_success": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "positive",
-                                        "payload": {
-                                            "rounds_to_apply": 1,
-                                            "categories_of_players": ["team"],
-                                            "points": 15,
-                                            "players": []
-                                        }
-                                    },
-                                    {
-                                        "name": "give_overpayment",
-                                        "type": "positive",
-                                        "payload": {
-                                            "categories_of_players": ["leader"],
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                                "on_failure": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "negative",
-                                        "payload": {
-                                            "rounds_to_apply": 1,
-                                            "categories_of_players": ["team", "leader"],
-                                            "points": -3,
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                            },
-                            {
-                                "name": "Theatre",
-                                "points_to_succeed": 20,
-                                "min_team": 2,
-                                "max_team": 2,
-                                "on_success": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "positive",
-                                        "payload": {
-                                            "rounds_to_apply": 2,
-                                            "categories_of_players": ["team"],
-                                            "points": 8,
-                                            "players": []
-                                        }
-                                    },
-                                    {
-                                        "name": "give_overpayment",
-                                        "type": "positive",
-                                        "payload": {
-                                            "categories_of_players": ["leader"],
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                                "on_failure": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "negative",
-                                        "payload": {
-                                            "rounds_to_apply": 2,
-                                            "categories_of_players": ["team", "leader"],
-                                            "points": -2,
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                            },
-                            {
-                                "name": "Cinema",
-                                "points_to_succeed": 20,
-                                "min_team": 2,
-                                "max_team": 2,
-                                "on_success": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "positive",
-                                        "payload": {
-                                            "rounds_to_apply": 3,
-                                            "categories_of_players": ["team"],
-                                            "points": 6,
-                                            "players": []
-                                        }
-                                    },
-                                    {
-                                        "name": "give_overpayment",
-                                        "type": "positive",
-                                        "payload": {
-                                            "categories_of_players": ["leader"],
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                                "on_failure": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "negative",
-                                        "payload": {
-                                            "rounds_to_apply": 3,
-                                            "categories_of_players": ["team", "leader"],
-                                            "points": -1,
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                            },
-                            {
-                                "name": "School",
-                                "points_to_succeed": 20,
-                                "min_team": 2,
-                                "max_team": 2,
-                                "on_success": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "positive",
-                                        "payload": {
-                                            "rounds_to_apply": 4,
-                                            "categories_of_players": ["team"],
-                                            "points": 5,
-                                            "players": []
-                                        }
-                                    },
-                                    {
-                                        "name": "give_overpayment",
-                                        "type": "positive",
-                                        "payload": {
-                                            "categories_of_players": ["leader"],
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                                "on_failure": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "negative",
-                                        "payload": {
-                                            "rounds_to_apply": 4,
-                                            "categories_of_players": ["team", "leader"],
-                                            "points": -1,
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                            },
-                            {
-                                "name": "Restaurant",
-                                "points_to_succeed": 20,
-                                "min_team": 2,
-                                "max_team": 2,
-                                "on_success": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "positive",
-                                        "payload": {
-                                            "rounds_to_apply": 5,
-                                            "categories_of_players": ["team"],
-                                            "points": 5,
-                                            "players": []
-                                        }
-                                    },
-                                    {
-                                        "name": "give_overpayment",
-                                        "type": "positive",
-                                        "payload": {
-                                            "categories_of_players": ["leader"],
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                                "on_failure": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "negative",
-                                        "payload": {
-                                            "rounds_to_apply": 5,
-                                            "categories_of_players": ["team", "leader"],
-                                            "points": -1,
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                            },
-                            {
-                                "name": "Church",
-                                "points_to_succeed": 30,
-                                "min_team": 2,
-                                "max_team": 2,
-                                "on_success": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "positive",
-                                        "payload": {
-                                            "rounds_to_apply": 1,
-                                            "categories_of_players": ["team"],
-                                            "points": 25,
-                                            "players": []
-                                        }
-                                    },
-                                    {
-                                        "name": "give_overpayment",
-                                        "type": "positive",
-                                        "payload": {
-                                            "categories_of_players": ["leader"],
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                                "on_failure": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "negative",
-                                        "payload": {
-                                            "rounds_to_apply": 1,
-                                            "categories_of_players": ["team", "leader"],
-                                            "points": -3,
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                            },
-                            {
-                                "name": "Market",
-                                "points_to_succeed": 30,
-                                "min_team": 2,
-                                "max_team": 2,
-                                "on_success": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "positive",
-                                        "payload": {
-                                            "rounds_to_apply": 2,
-                                            "categories_of_players": ["team"],
-                                            "points": 13,
-                                            "players": []
-                                        }
-                                    },
-                                    {
-                                        "name": "give_overpayment",
-                                        "type": "positive",
-                                        "payload": {
-                                            "categories_of_players": ["leader"],
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                                "on_failure": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "negative",
-                                        "payload": {
-                                            "rounds_to_apply": 2,
-                                            "categories_of_players": ["team", "leader"],
-                                            "points": -2,
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                            },
-                            {
-                                "name": "Highway",
-                                "points_to_succeed": 30,
-                                "min_team": 2,
-                                "max_team": 2,
-                                "on_success": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "positive",
-                                        "payload": {
-                                            "rounds_to_apply": 3,
-                                            "categories_of_players": ["team"],
-                                            "points": 10,
-                                            "players": []
-                                        }
-                                    },
-                                    {
-                                        "name": "give_overpayment",
-                                        "type": "positive",
-                                        "payload": {
-                                            "categories_of_players": ["leader"],
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                                "on_failure": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "negative",
-                                        "payload": {
-                                            "rounds_to_apply": 3,
-                                            "categories_of_players": ["team", "leader"],
-                                            "points": -1,
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                            },
-                            {
-                                "name": "Museum",
-                                "points_to_succeed": 30,
-                                "min_team": 2,
-                                "max_team": 2,
-                                "on_success": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "positive",
-                                        "payload": {
-                                            "rounds_to_apply": 4,
-                                            "categories_of_players": ["team"],
-                                            "points": 9,
-                                            "players": []
-                                        }
-                                    },
-                                    {
-                                        "name": "give_overpayment",
-                                        "type": "positive",
-                                        "payload": {
-                                            "categories_of_players": ["leader"],
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                                "on_failure": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "negative",
-                                        "payload": {
-                                            "rounds_to_apply": 4,
-                                            "categories_of_players": ["team", "leader"],
-                                            "points": -1,
-                                            "players": []
-                                        }
-                                    }
-                                ]`
-                            },
-                            {
-                                "name": "Library",
-                                "points_to_succeed": 30,
-                                "min_team": 2,
-                                "max_team": 2,
-                                "on_success": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "positive",
-                                        "payload": {
-                                            "rounds_to_apply": 5,
-                                            "categories_of_players": ["team"],
-                                            "points": 8,
-                                            "players": []
-                                        }
-                                    },
-                                    {
-                                        "name": "give_overpayment",
-                                        "type": "positive",
-                                        "payload": {
-                                            "categories_of_players": ["leader"],
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                                "on_failure": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "negative",
-                                        "payload": {
-                                            "rounds_to_apply": 5,
-                                            "categories_of_players": ["team", "leader"],
-                                            "points": -1,
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                            },
-                            {
-                                "name": "Plant",
-                                "points_to_succeed": 40,
-                                "min_team": 3,
-                                "max_team": 3,
-                                "on_success": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "positive",
-                                        "payload": {
-                                            "rounds_to_apply": 1,
-                                            "categories_of_players": ["team"],
-                                            "points": 25,
-                                            "players": []
-                                        }
-                                    },
-                                    {
-                                        "name": "give_overpayment",
-                                        "type": "positive",
-                                        "payload": {
-                                            "categories_of_players": ["leader"],
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                                "on_failure": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "negative",
-                                        "payload": {
-                                            "rounds_to_apply": 1,
-                                            "categories_of_players": ["team", "leader"],
-                                            "points": -3,
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                            },
-                            {
-                                "name": "Factory",
-                                "points_to_succeed": 40,
-                                "min_team": 3,
-                                "max_team": 3,
-                                "on_success": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "positive",
-                                        "payload": {
-                                            "rounds_to_apply": 2,
-                                            "categories_of_players": ["team"],
-                                            "points": 14,
-                                            "players": []
-                                        }
-                                    },
-                                    {
-                                        "name": "give_overpayment",
-                                        "type": "positive",
-                                        "payload": {
-                                            "categories_of_players": ["leader"],
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                                "on_failure": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "negative",
-                                        "payload": {
-                                            "rounds_to_apply": 2,
-                                            "categories_of_players": ["team", "leader"],
-                                            "points": -2,
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                            },
-                            {
-                                "name": "University",
-                                "points_to_succeed": 40,
-                                "min_team": 3,
-                                "max_team": 3,
-                                "on_success": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "positive",
-                                        "payload": {
-                                            "rounds_to_apply": 3,
-                                            "categories_of_players": ["team"],
-                                            "points": 10,
-                                            "players": []
-                                        }
-                                    },
-                                    {
-                                        "name": "give_overpayment",
-                                        "type": "positive",
-                                        "payload": {
-                                            "categories_of_players": ["leader"],
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                                "on_failure": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "negative",
-                                        "payload": {
-                                            "rounds_to_apply": 3,
-                                            "categories_of_players": ["team", "leader"],
-                                            "points": -1,
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                            },
-                            {
-                                "name": "Airport",
-                                "points_to_succeed": 60,
-                                "min_team": 3,
-                                "max_team": 4,
-                                "on_success": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "positive",
-                                        "payload": {
-                                            "rounds_to_apply": 1,
-                                            "categories_of_players": ["team"],
-                                            "points": 30,
-                                            "players": []
-                                        }
-                                    },
-                                    {
-                                        "name": "give_overpayment",
-                                        "type": "positive",
-                                        "payload": {
-                                            "categories_of_players": ["leader"],
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                                "on_failure": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "negative",
-                                        "payload": {
-                                            "rounds_to_apply": 1,
-                                            "categories_of_players": ["team", "leader"],
-                                            "points": -3,
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                            },
-                            {
-                                "name": "Bus_station",
-                                "points_to_succeed": 60,
-                                "min_team": 3,
-                                "max_team": 4,
-                                "on_success": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "positive",
-                                        "payload": {
-                                            "rounds_to_apply": 2,
-                                            "categories_of_players": ["team"],
-                                            "points": 17,
-                                            "players": []
-                                        }
-                                    },
-                                    {
-                                        "name": "give_overpayment",
-                                        "type": "positive",
-                                        "payload": {
-                                            "categories_of_players": ["leader"],
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                                "on_failure": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "negative",
-                                        "payload": {
-                                            "rounds_to_apply": 2,
-                                            "categories_of_players": ["team", "leader"],
-                                            "points": -2,
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                            },
-                            {
-                                "name": "Metro_station",
-                                "points_to_succeed": 60,
-                                "min_team": 3,
-                                "max_team": 4,
-                                "on_success": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "positive",
-                                        "payload": {
-                                            "rounds_to_apply": 3,
-                                            "categories_of_players": ["team"],
-                                            "points": 13,
-                                            "players": []
-                                        }
-                                    },
-                                    {
-                                        "name": "give_overpayment",
-                                        "type": "positive",
-                                        "payload": {
-                                            "categories_of_players": ["leader"],
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                                "on_failure": `[
-                                    {
-                                        "name": "change_player_points",
-                                        "type": "negative",
-                                        "payload": {
-                                            "rounds_to_apply": 3,
-                                            "categories_of_players": ["team", "leader"],
-                                            "points": -1,
-                                            "players": []
-                                        }
-                                    }
-                                ]`,
-                            },
-                    ])
+                    cardDeck: ref([])
                 }
             },
             computed: {
+                game() {
+                    return this.room.game || {}
+                },
                 player() {
-                    return this.players.filter(p => p.player_name == this.playerName)[0] || {}
+                    return this.room.players?.find(p => p.name == this.playerName) || {}
+                },
+                playerEffectsToApply() {
+                    return (this.game.effects_to_apply
+                           && this.game.effects_to_apply.length > 0
+                           && this.game.effects_to_apply.filter(ef => ef.payload.players.includes(this.playerName))) || []
+                },
+                succeedCards() {
+                    return (this.game.history && this.game.history.filter(log => log.succeeded).map(log => log.card)) || []
+                },
+                portraitIds() {
+                    let pls = this.room.players || [];
+
+                    let portraitIds = {};
+                    pls.forEach(p => {
+                        portraitIds[p.name] = p.portrait_id;
+                    });
+
+                    return portraitIds;
                 },
                 roundStage() {
                     // project developing
@@ -1127,10 +595,9 @@
             },
             methods: {
                 selectPortrait(id) {
-                    this.portrait = id;
                     socket.emit('select_player_portrait', {
-                        "room_id": this.roomId,
                         "portrait_id": id,
+                        "room_id": this.roomId,
                         "player_name": this.playerName
                     });
                 },
@@ -1142,9 +609,6 @@
                 },
                 isLeader() {
                     return this.playerName == this.game.leader;
-                },
-                isCardSelected(card) {
-                    return this.selectedCards.map(c => c.card_id).includes(card.card_id);
                 },
                 addNewCardToGameDeck() {
                     this.cardDeck.push({
@@ -1159,13 +623,6 @@
                 rmCardFromGameDeck(idx) {
                     this.cardDeck.splice(idx, 1);
                 },
-                toggleCard(card) {
-                    if (!this.isCardSelected(card)) {
-                        this.selectedCards.push(card);
-                    } else {
-                        this.selectedCards = this.selectedCards.filter(c => c.card_id !== card.card_id);
-                    }
-                },
                 startGame() {
                     socket.emit('start_game', {
                         "room_id": this.roomId,
@@ -1174,7 +631,6 @@
                         "initial_player_points": this.gameConfig.initialPlayerPoints,
                         "card_effect_visibility": this.gameConfig.cardEffectVisibility
                     });
-                    console.log('Game started!')
                 },
                 makeProjectDeposit(points) {
                     let payload = {
@@ -1188,10 +644,10 @@
                 submitCardsSelection() {
                     let payload = {
                         "room_id": this.roomId,
-                        "selected_cards_ids": this.selectedCards.map(c => c.card_id),
+                        "selected_cards_ids": [this.selectedCard],
                     }
                     socket.emit('select_cards_from_table', payload)
-                    this.selectedCards = [];
+                    this.selectedCard = null;
                 },
                 submitProjectTeamSelection() {
                     let payload = {
@@ -1205,44 +661,44 @@
             mounted() {
                 let vm = this;
 
+                socket.on('connect', function() {
+                    socket.emit('player_enter', {"player_name": vm.playerName, "room_id": vm.roomId});
+                });
+
                 let listeners = {
-                    'connect': function() {
-                        socket.emit('player_enter', { "player_name": vm.playerName, "room_id": vm.roomId });
-                    },
                     'room_entered': function(arg) {
-                        vm.players = arg.players;
-                        vm.config = arg.config;
-                        vm.game = arg.game;
+                        vm.room = arg;
                     },
                     'game_started': function(arg) {
-                        vm.game = arg.game;
-                    },
-                    'game_ended': function(arg) {
-                        vm.finalRating = arg.rating;
+                        vm.room = arg;
                     },
                     'round_started': function(arg) {
-                        vm.game = arg.game;
+                        vm.room = arg;
                     },
                     'move_started': function(arg) {
-                        vm.game = arg.game;
+                        vm.room = arg;
                     },
                     'player_points_changed': function(arg) {
-                        vm.game = arg.game;
-                    },
-                    'added_to_common_account': function(arg) {
-                        vm.game = arg.game;
+                        vm.room = arg;
                     },
                     'cards_for_round_selected': function(arg) {
-                        vm.game = arg.game;
+                        vm.room = arg;
                     },
                     'team_for_round_selected': function(arg) {
-                        vm.game = arg.game;
+                        vm.room = arg;
                     },
                     'round_result': function(arg) {
-                        vm.roundResults = arg.is_success;
+                        vm.room = arg;
+                        vm.roundResults = arg.game.latest_round_result;
+                        vm.showRoundResults = true;
                     },
                     'player_portrait_selected': function(arg) {
-                        vm.playerPortraits[arg.player_name] = arg.portrait_id;
+                        vm.room = arg;
+                    },
+                    'game_ended': function(arg) {
+                        vm.room = arg;
+                        vm.finalRating = arg.rating;
+                        vm.showFinalResults = true;
                     }
                 }
 
@@ -1278,6 +734,10 @@
                 }
             },
             template: '#TableCard',
+        });
+        app.component('PointsBadge', {
+            props: ['points', 'duration', 'prolonged', 'signed'],
+            template: '<span class="badge rounded-pill bg-warning text-dark"><strong><span v-if="signed && points > 0">+</span>${ points }$</strong><span v-if="prolonged"><span v-if="duration">&nbsp;на&nbsp;${ duration }$&nbsp;<i class="bi-hourglass-split"></i></span></span></span>',
         });
 
         app.config.compilerOptions.delimiters = ["${", "}$"];

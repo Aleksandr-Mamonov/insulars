@@ -7,12 +7,8 @@ from .database import write_to_db
 def init_db():
     con = sqlite3.connect("insulars.db")
     cur = con.cursor()
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS rooms(uid, owner, game, number_of_games INTEGER DEFAULT 0)"
-    )
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS room_players(room_id, player_name, portrait_id)"
-    )
+    cur.execute("CREATE TABLE IF NOT EXISTS rooms(uid, owner, game, number_of_games INTEGER DEFAULT 0)")
+    cur.execute("CREATE TABLE IF NOT EXISTS room_players(room_id, player_name, portrait_id)")
     cur.execute(
         """CREATE TABLE IF NOT EXISTS cards (
         name UNIQUE,
@@ -36,33 +32,7 @@ def init_db():
         available BOOLEAN DEFAULT TRUE
     )"""
     )
-    # on_success/on_failure['payload']['categories_of_players'] = ['all', 'leader', 'team', 'others', 'random_player']
-    # cur.execute(
-    #     """INSERT INTO cards VALUES
-    #     (
-    #         'Station',
-    #         20,
-    #         1,
-    #         2,
-    #         '{
-    #             "name": "change_player_points",
-    #             "type": "positive",
-    #             "payload": {
-    #                 "rounds_to_apply": 1,
-    #                 "categories_of_players": ["leader", "team"],
-    #                 "points": 10, "players": []}
-    #         }',
-    #         '{
-    #             "name": "change_player_points",
-    #             "type": "negative",
-    #             "payload": {
-    #                 "rounds_to_apply": 2,
-    #                 "categories_of_players": ["leader", "team"],
-    #                 "points": -5, "players": []}
-    #         }'
-    #     )
-    # """
-    # )
+
     for card in cards:
         write_to_db(
             """
