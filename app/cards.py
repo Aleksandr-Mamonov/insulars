@@ -46,47 +46,12 @@ EFFECTS = [
     },
 ]
 CARD_FAMILIES = {
-    "Road": {
-        "1": "Asphalt roads",
-        "2": "Traffic lights",
-        "3": "Parkings",
-        "4": "Traffic interchanges",
-        "5": "Highways",
-    },
     "Transport": {
-        "1": "Bike rental network",
-        "2": "Bus station",
+        "1": "Rickshaw",
+        "2": "Bike rental network",
         "3": "Taxi station",
         "4": "Railway station",
         "5": "Airport",
-    },
-    "Medicine": {
-        "1": "Emergency room",
-        "2": "Local clinic",
-        "3": "City polyclinic",
-        "4": "Hospital",
-        "5": "Medical center",
-    },
-    "Culture": {
-        "1": "Museum",
-        "2": "Theatre",
-        "3": "Philarmony",
-        "4": "Opera",
-        "5": "Cultural center",
-    },
-    "Education": {
-        "1": "Kindergarten",
-        "2": "School",
-        "3": "College",
-        "4": "University",
-        "5": "Academy",
-    },
-    "Manufacturing": {
-        "1": "Garage",
-        "2": "Workshop",
-        "3": "Factory",
-        "4": "Plant",
-        "5": "Industrial complexs",
     },
     "Shopping": {
         "1": "Tent",
@@ -95,12 +60,12 @@ CARD_FAMILIES = {
         "4": "Market",
         "5": "Shopping center",
     },
-    "Entertainment": {
-        "1": "Playground",
-        "2": "Amusement park",
-        "3": "Cinema",
-        "4": "City park",
-        "5": "Recreational complex",
+    "Education": {
+        "1": "Kindergarten",
+        "2": "School",
+        "3": "College",
+        "4": "University",
+        "5": "Academy",
     },
     "Religion": {
         "1": "Altar",
@@ -109,12 +74,47 @@ CARD_FAMILIES = {
         "4": "Temple",
         "5": "Cathedral",
     },
-    "Infrastructure": {
-        "1": "Pavement",
-        "2": "Sewage",
-        "3": "Water supply",
-        "4": "Electricity",
-        "5": "Solar energy plant",
+    "Government": {
+        "1": "Rented office",
+        "2": "Administration building",
+        "3": "City hall",
+        "4": "Ministry",
+        "5": "Government house",
+    },
+    "Culture": {
+        "1": "Museum",
+        "2": "Theatre",
+        "3": "Philarmony",
+        "4": "Opera",
+        "5": "Cultural center",
+    },
+    "Food": {
+        "1": "Hot dog trailer",
+        "2": "Bakery",
+        "3": "Canteen",
+        "4": "Farm",
+        "5": "Food plant",
+    },
+    "Medicine": {
+        "1": "Emergency room",
+        "2": "Local clinic",
+        "3": "City polyclinic",
+        "4": "Hospital",
+        "5": "Medical center",
+    },
+    "Entertainment": {
+        "1": "Playground",
+        "2": "Amusement park",
+        "3": "Cinema",
+        "4": "City park",
+        "5": "Recreational complex",
+    },
+    "Finance": {
+        "1": "Pawnshop",
+        "2": "Micro-credit",
+        "3": "Bank",
+        "4": "Exchange",
+        "5": "Ministry of finance",
     },
 }
 
@@ -154,10 +154,18 @@ def generate_cards():
                     "name": "change_player_points",
                     "type": "positive",
                     "payload": {
-                        "categories_of_players": ["leader", "team"],
+                        "categories_of_players": ["team"],
                         "players": [],
                         "rounds_to_apply": int(tier),
                         "points": 10,
+                    },
+                },
+                {
+                    "name": "give_overpayment",
+                    "type": "positive",
+                    "payload": {
+                        "categories_of_players": ["leader"],
+                        "players": [],
                     },
                 },
             ],
@@ -166,7 +174,7 @@ def generate_cards():
                     "name": "change_player_points",
                     "type": "negative",
                     "payload": {
-                        "categories_of_players": ["leader", "team"],
+                        "categories_of_players": ["random_player"],
                         "players": [],
                         "rounds_to_apply": int(tier),
                         "points": -10,
