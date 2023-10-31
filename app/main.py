@@ -356,10 +356,13 @@ def handle_select_cards_from_table(data):
             if selected_card_id == card_id:
                 game["cards_selected_by_leader"].append(card)
                 break
-
+        if card not in game["cards_selected_by_leader"]:
+            write_to_db(
+                "UPDATE game_deck SET available=TRUE WHERE card_id=:card_id AND game_id=:game_id",
+                {"card_id": card["card_id"], "game_id": game["game_id"]},
+            )
     game["cards_on_table"].clear()
     store_game(room_id, game)
-
     emit("cards_for_round_selected", build_payload(room_id), to=room_id)
 
 
