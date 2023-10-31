@@ -66,11 +66,54 @@ def build_deck(game_id: str, players_number: int):
         )
 
 
-def draw_random_card_from_deck(game_id: str) -> dict:
-    card = select_one_from_db(
+def draw_cards_for_round(game: dict) -> dict:
+    """
+    1) iterates over all succeeded cards and selects cards of next tiers from same families.
+    i.e. if 2nd tier card of family 'Shopping' is succeeded in previous round,
+    then it draws a 3rd tier card of 'Shopping' family and add it to cards list.
+    2) adds all available 1st tier cards to cards list
+    3) randomly chooses <CARDS_ON_TABLE_IN_ROUND> from cards list and update them as unavailable in game_deck
+    4) returns chosen cards
+    """
+    game_id = game["game_id"]
+    cards = []
+    if game["history"]:
+        succeeded_cards_with_next_tier_available = [
+            item["card"]
+            for item in game["history"]
+            if item["succeeded"] == True and item["card"]["tier"] != "5"
+        ]
+        if succeeded_cards_with_next_tier_available:
+            for card in succeeded_cards_with_next_tier_available:
+                family = card["family"]
+                next_tier = card["tier"] + 1
+                next_tier_card = select_one_from_db(
+                    """
+                    SELECT 
+                        gd.card_id,
+                        gd.card_family,
+                        gd.card_tier,
+                        gd.card_name as name,
+                        gd.points_to_succeed,
+                        gd.min_team,
+                        gd.max_team,
+                        gd.on_success,
+                        gd.on_failure
+                    FROM game_deck AS gd 
+                    WHERE gd.game_id=:game_id 
+                    AND gd.card_family=:card_family 
+                    AND gd.card_tier=:card_tier
+                    """,
+                    {"game_id": game_id, "card_family": family, "card_tier": next_tier},
+                )
+                cards.append(next_tier_card)
+
+    available_first_tier_cards = select_all_from_db(
         """
         SELECT 
             gd.card_id,
+            gd.card_family,
+            gd.card_tier,
             gd.card_name as name,
             gd.points_to_succeed,
             gd.min_team,
@@ -78,25 +121,21 @@ def draw_random_card_from_deck(game_id: str) -> dict:
             gd.on_success,
             gd.on_failure
         FROM game_deck AS gd 
-        WHERE gd.game_id=:game_id AND gd.available=TRUE
-        ORDER BY RANDOM() 
-        LIMIT 1
+        WHERE gd.game_id=:game_id 
+        AND gd.available=TRUE
+        AND gd.card_tier='1'
         """,
         {"game_id": game_id},
     )
+    cards.extend(available_first_tier_cards)
+    chosen_cards = random.sample(cards, CARDS_ON_TABLE_IN_ROUND)
+    for card in chosen_cards:
+        write_to_db(
+            "UPDATE game_deck SET available=FALSE WHERE card_id=:card_id AND game_id=:game_id",
+            {"card_id": card["card_id"], "game_id": game_id},
+        )
 
-    try:
-        card_id = card["card_id"]
-    except TypeError as e:
-        print("The deck is empty.")
-        # TODO: What to do if deck is empty? Rebuild again?
-        raise
-
-    write_to_db(
-        "UPDATE game_deck SET available=FALSE WHERE card_id=:card_id AND game_id=:game_id",
-        {"card_id": card_id, "game_id": game_id},
-    )
-    return card
+    return chosen_cards
 
 
 def rotate_players_order_in_round(game: dict):
@@ -255,10 +294,7 @@ def handle_game_start(data):
         {"room_id": room_id},
     )
     player_names = [pl["player_name"] for pl in players]
-    build_deck(game_id=game_id, players_number=len(player_names))
-    cards_on_table = [
-        draw_random_card_from_deck(game_id) for _ in range(CARDS_ON_TABLE_IN_ROUND)
-    ]
+
     game = {
         "game_id": game_id,
         "round": 1,
@@ -271,7 +307,6 @@ def handle_game_start(data):
             pln: int(data["initial_player_points"]) for pln in player_names
         },
         "round_common_account_points": 0,
-        "cards_on_table": cards_on_table,
         "cards_selected_by_leader": [],
         "team": [],
         "effects_to_apply": [],
@@ -279,7 +314,9 @@ def handle_game_start(data):
         "card_effect_visibility": data["card_effect_visibility"],
         "history": [],
     }
-
+    build_deck(game_id=game_id, players_number=len(player_names))
+    cards_on_table = draw_cards_for_round(game)
+    game["cards_on_table"] = cards_on_table
     rm = select_one_from_db(
         "SELECT number_of_games FROM rooms WHERE uid=:room_id", {"room_id": room_id}
     )
@@ -411,10 +448,7 @@ def start_next_round(game: dict):
 
         # Reset round common account
         game["round_common_account_points"] = 0
-        new_cards_on_table = [
-            draw_random_card_from_deck(game["game_id"])
-            for _ in range(CARDS_ON_TABLE_IN_ROUND)
-        ]
+        new_cards_on_table = draw_cards_for_round(game)
         game["cards_on_table"] = new_cards_on_table
         game["cards_selected_by_leader"] = []
         game["team"] = []
