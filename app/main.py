@@ -78,7 +78,6 @@ def draw_cards_for_round(game: dict) -> dict:
     game_id = game["game_id"]
     cards = []
     if game["history"]:
-        # TODO: when last tier is built, then no longer offer it.
         families_max_tiers = {}
         for item in game["history"]:
             card_tier = int(item["card"]["card_tier"])
@@ -90,6 +89,9 @@ def draw_cards_for_round(game: dict) -> dict:
                         families_max_tiers[card_family] = str(card_tier)
                 else:
                     families_max_tiers[card_family] = str(card_tier)
+            elif card_tier == 5:
+                families_max_tiers.pop(card_family)
+                switch_card_availability_to(False, item["card"]["card_id"], game_id)
 
         succeeded_cards_with_next_tier_available = [
             item["card"]
@@ -97,11 +99,8 @@ def draw_cards_for_round(game: dict) -> dict:
             if item["card"]["card_family"] in families_max_tiers.keys()
             and item["card"]["card_tier"]
             == families_max_tiers[item["card"]["card_family"]]
+            and item["card"]["card_tier"] != "5"
         ]
-        print(f"families_max_tiers {families_max_tiers}")
-        print(
-            f"suceeded cards with next tier available {succeeded_cards_with_next_tier_available}"
-        )
         if succeeded_cards_with_next_tier_available:
             for card in succeeded_cards_with_next_tier_available:
                 family = card["card_family"]
@@ -152,7 +151,6 @@ def draw_cards_for_round(game: dict) -> dict:
     )
     cards.extend(available_first_tier_cards)
     chosen_cards = random.sample(cards, CARDS_ON_TABLE_IN_ROUND)
-    print(f"chosen cards {chosen_cards}")
     for card in chosen_cards:
         write_to_db(
             "UPDATE game_deck SET available=FALSE WHERE card_id=:card_id AND game_id=:game_id",
@@ -162,7 +160,7 @@ def draw_cards_for_round(game: dict) -> dict:
     return chosen_cards
 
 
-def switch_card_availability(card_id, game_id, available: bool):
+def switch_card_availability_to(available: bool, card_id, game_id):
     write_to_db(
         "UPDATE game_deck SET available=:available WHERE card_id=:card_id AND game_id=:game_id",
         {"card_id": card_id, "game_id": game_id, "available": available},
