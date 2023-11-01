@@ -45,9 +45,13 @@ def _join_player_to_room(player_name, room_id):
     session["player_name"] = player_name
 
 
-def build_deck(game_id: str, players_number: int):
-    card_families = dict(random.sample(list(CARD_FAMILIES.items()), players_number))
-    cards = generate_cards(card_families, players_number)
+def add_cards_to_deck(
+    game_id: str, players_number: int, card_families: dict, families_number: int
+):
+    chosen_card_families = dict(
+        random.sample(list(card_families.items()), families_number)
+    )
+    cards = generate_cards(chosen_card_families, players_number)
     for card in cards:
         write_to_db(
             """INSERT INTO game_deck (game_id, card_family, card_tier, card_name, points_to_succeed, min_team, max_team, on_success, on_failure)
@@ -130,23 +134,59 @@ def draw_cards_for_round(game: dict) -> dict:
                 )
                 cards.append(next_tier_card)
 
-    available_first_tier_cards = select_all_from_db(
+    remained_first_tiers = select_one_from_db(
         """
-        SELECT 
-            gd.card_id,
-            gd.card_family,
-            gd.card_tier,
-            gd.card_name as name,
-            gd.points_to_succeed,
-            gd.min_team,
-            gd.max_team,
-            gd.on_success,
-            gd.on_failure
+        SELECT COUNT(*) AS count
         FROM game_deck AS gd 
         WHERE gd.game_id=:game_id 
         AND gd.available=TRUE
         AND gd.card_tier='1'
         """,
+        {"game_id": game_id},
+    )["count"]
+
+    if len(cards) + remained_first_tiers < CARDS_ON_TABLE_IN_ROUND:
+        remained_families_names = select_all_from_db(
+            """
+                SELECT DISTINCT family
+                FROM cards
+                EXCEPT
+                SELECT DISTINCT card_family
+                FROM game_deck
+                WHERE game_deck.game_id=:game_id
+            """,
+            {"game_id": game_id},
+        )
+        remained_families_names = [
+            family["family"] for family in remained_families_names
+        ]
+        remained_card_families = {
+            family: CARD_FAMILIES[family] for family in remained_families_names
+        }
+        add_cards_to_deck(
+            game_id=game_id,
+            players_number=len(game["players"]),
+            card_families=remained_card_families,
+            families_number=1,
+        )
+
+    available_first_tier_cards = select_all_from_db(
+        """
+    SELECT
+        gd.card_id,
+        gd.card_family,
+        gd.card_tier,
+        gd.card_name as name,
+        gd.points_to_succeed,
+        gd.min_team,
+        gd.max_team,
+        gd.on_success,
+        gd.on_failure
+    FROM game_deck AS gd
+    WHERE gd.game_id=:game_id
+    AND gd.available=TRUE
+    AND gd.card_tier='1'
+    """,
         {"game_id": game_id},
     )
     cards.extend(available_first_tier_cards)
@@ -343,7 +383,12 @@ def handle_game_start(data):
         "card_effect_visibility": data["card_effect_visibility"],
         "history": [],
     }
-    build_deck(game_id=game_id, players_number=len(player_names))
+    add_cards_to_deck(
+        game_id=game_id,
+        players_number=len(player_names),
+        card_families=CARD_FAMILIES,
+        families_number=len(player_names),
+    )
     cards_on_table = draw_cards_for_round(game)
     game["cards_on_table"] = cards_on_table
     rm = select_one_from_db(
