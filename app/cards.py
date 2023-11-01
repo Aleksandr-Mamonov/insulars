@@ -140,15 +140,19 @@ TIER_EFFECTS = {
 }
 
 
-def generate_cards(card_families: dict):
+def generate_cards(card_families: dict, players_number: int):
     cards = [
         {
             "family": family,
             "tier": tier,
             "name": card_families[family][tier],
             "points_to_succeed": int(tier) * 10,
-            "min_team": int(tier) + 1,
-            "max_team": int(tier) + 1,
+            "min_team": int(tier) + 1
+            if (int(tier) + 1) < players_number
+            else players_number - 1,
+            "max_team": int(tier) + 1
+            if (int(tier) + 1) < players_number
+            else players_number - 1,
             "on_success": [
                 {
                     "name": "change_player_points",
@@ -798,4 +802,3 @@ CARDS = [
         ],
     },
 ]
-NEW_CARDS = generate_cards(CARD_FAMILIES)

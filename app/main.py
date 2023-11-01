@@ -47,7 +47,7 @@ def _join_player_to_room(player_name, room_id):
 
 def build_deck(game_id: str, players_number: int):
     card_families = dict(random.sample(list(CARD_FAMILIES.items()), players_number))
-    cards = generate_cards(card_families)
+    cards = generate_cards(card_families, players_number)
     for card in cards:
         write_to_db(
             """INSERT INTO game_deck (game_id, card_family, card_tier, card_name, points_to_succeed, min_team, max_team, on_success, on_failure)
@@ -78,15 +78,34 @@ def draw_cards_for_round(game: dict) -> dict:
     game_id = game["game_id"]
     cards = []
     if game["history"]:
+        # TODO: when last tier is built, then no longer offer it.
+        families_max_tiers = {}
+        for item in game["history"]:
+            card_tier = int(item["card"]["card_tier"])
+            card_family = item["card"]["card_family"]
+            if item["succeeded"] == True and card_tier != 5:
+                max_tier = families_max_tiers.get(card_family)
+                if max_tier:
+                    if card_tier > int(max_tier):
+                        families_max_tiers[card_family] = str(card_tier)
+                else:
+                    families_max_tiers[card_family] = str(card_tier)
+
         succeeded_cards_with_next_tier_available = [
             item["card"]
             for item in game["history"]
-            if item["succeeded"] == True and item["card"]["tier"] != "5"
+            if item["card"]["card_family"] in families_max_tiers.keys()
+            and item["card"]["card_tier"]
+            == families_max_tiers[item["card"]["card_family"]]
         ]
+        print(f"families_max_tiers {families_max_tiers}")
+        print(
+            f"suceeded cards with next tier available {succeeded_cards_with_next_tier_available}"
+        )
         if succeeded_cards_with_next_tier_available:
             for card in succeeded_cards_with_next_tier_available:
-                family = card["family"]
-                next_tier = card["tier"] + 1
+                family = card["card_family"]
+                next_tier = int(card["card_tier"]) + 1
                 next_tier_card = select_one_from_db(
                     """
                     SELECT 
@@ -104,7 +123,11 @@ def draw_cards_for_round(game: dict) -> dict:
                     AND gd.card_family=:card_family 
                     AND gd.card_tier=:card_tier
                     """,
-                    {"game_id": game_id, "card_family": family, "card_tier": next_tier},
+                    {
+                        "game_id": game_id,
+                        "card_family": family,
+                        "card_tier": str(next_tier),
+                    },
                 )
                 cards.append(next_tier_card)
 
@@ -129,6 +152,7 @@ def draw_cards_for_round(game: dict) -> dict:
     )
     cards.extend(available_first_tier_cards)
     chosen_cards = random.sample(cards, CARDS_ON_TABLE_IN_ROUND)
+    print(f"chosen cards {chosen_cards}")
     for card in chosen_cards:
         write_to_db(
             "UPDATE game_deck SET available=FALSE WHERE card_id=:card_id AND game_id=:game_id",
@@ -136,6 +160,13 @@ def draw_cards_for_round(game: dict) -> dict:
         )
 
     return chosen_cards
+
+
+def switch_card_availability(card_id, game_id, available: bool):
+    write_to_db(
+        "UPDATE game_deck SET available=:available WHERE card_id=:card_id AND game_id=:game_id",
+        {"card_id": card_id, "game_id": game_id, "available": available},
+    )
 
 
 def rotate_players_order_in_round(game: dict):
@@ -448,19 +479,21 @@ def start_next_round(game: dict):
         players_order_in_new_round = game["players_order_in_round"]
         # Rotate players order for next round
         players_order_in_new_round.append(players_order_in_new_round.pop(0))
-
-        # Reset round common account
         game["round_common_account_points"] = 0
+        if game["latest_round_result"] == False:
+            for card in game["cards_selected_by_leader"]:
+                write_to_db(
+                    "UPDATE game_deck SET available=TRUE WHERE card_id=:card_id AND game_id=:game_id",
+                    {"card_id": card["card_id"], "game_id": game["game_id"]},
+                )
         new_cards_on_table = draw_cards_for_round(game)
         game["cards_on_table"] = new_cards_on_table
         game["cards_selected_by_leader"] = []
         game["team"] = []
-
         game["players_order_in_round"] = players_order_in_new_round
         game["players_to_move"] = players_order_in_new_round
         game["active_player"] = players_order_in_new_round[0]
         game["leader"] = players_order_in_new_round[0]
-
         return game["round"], game
 
 

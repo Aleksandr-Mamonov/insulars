@@ -42,23 +42,23 @@ def init_db():
     )"""
     )
 
-    for card in NEW_CARDS:
-        write_to_db(
-            """
-        INSERT INTO cards (family, tier, name, points_to_succeed, min_team, max_team, on_success, on_failure)
-        VALUES (:family, :tier, :name, :points_to_succeed, :min_team, :max_team, :on_success, :on_failure)
-        """,
-            {
-                "family": card["family"],
-                "tier": card["tier"],
-                "name": card["name"],
-                "points_to_succeed": card["points_to_succeed"],
-                "min_team": card["min_team"],
-                "max_team": card["max_team"],
-                "on_success": json.dumps(card["on_success"]),
-                "on_failure": json.dumps(card["on_failure"]),
-            },
-        )
+    # for card in NEW_CARDS:
+    #     write_to_db(
+    #         """
+    #     INSERT INTO cards (family, tier, name, points_to_succeed, min_team, max_team, on_success, on_failure)
+    #     VALUES (:family, :tier, :name, :points_to_succeed, :min_team, :max_team, :on_success, :on_failure)
+    #     """,
+    #         {
+    #             "family": card["family"],
+    #             "tier": card["tier"],
+    #             "name": card["name"],
+    #             "points_to_succeed": card["points_to_succeed"],
+    #             "min_team": card["min_team"],
+    #             "max_team": card["max_team"],
+    #             "on_success": json.dumps(card["on_success"]),
+    #             "on_failure": json.dumps(card["on_failure"]),
+    #         },
+    #     )
     con.commit()
 
 
