@@ -2,7 +2,7 @@ import json
 import sqlite3
 
 from .database import write_to_db
-from .cards import NEW_CARDS
+from .cards import CARDS
 
 
 def init_db():
@@ -41,8 +41,8 @@ def init_db():
         available BOOLEAN DEFAULT TRUE
     )"""
     )
-
-    for card in NEW_CARDS:
+    # populate cards table with all possible cards. min_team and max_team don't matter
+    for card in CARDS:
         write_to_db(
             """
         INSERT INTO cards (family, tier, name, points_to_succeed, min_team, max_team, on_success, on_failure)
