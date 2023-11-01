@@ -368,7 +368,7 @@
                 <!-- Cards -->
                 <div class="row justify-content-sm-center bg-gradient py-4">
                     <div class="col">
-                        <div v-if="game.cards_on_table && game.cards_on_table.length > 0">
+                        <div v-if="roundStage === 0 && game.cards_on_table && game.cards_on_table.length > 0">
                             <div v-if="isLeader()">
                                 <div class="row">
                                     <div class="col">
@@ -644,7 +644,7 @@
                 submitCardsSelection() {
                     let payload = {
                         "room_id": this.roomId,
-                        "selected_cards_ids": [this.selectedCard],
+                        "selected_card_id": this.selectedCard,
                     }
                     socket.emit('select_cards_from_table', payload)
                     this.selectedCard = null;
