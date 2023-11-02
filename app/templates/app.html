@@ -349,7 +349,9 @@
                                     <span class="p-1 m-1 text-white bg-success" v-if="game.team && game.team.includes(pl.name)">команда</span>
                                 </p>
                             </div>
-
+                        </div>
+                        <div v-for="vacancy in playerVacancies(pl.name)">
+                            <span class="bg-info badge text-dark me-1 mb-1">${ vacancy }$</span>
                         </div>
                     </div>
 
@@ -679,6 +681,9 @@
                     }
                     socket.emit('select_team_for_round', payload)
                     this.projectTeamMembersSelection = {};
+                },
+                playerVacancies(plName) {
+                    return Object.entries(this.game.vacancies).filter(v => v[1] === plName).map(v => v[0]);
                 }
             },
             mounted() {
