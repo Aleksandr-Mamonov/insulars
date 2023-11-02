@@ -225,7 +225,7 @@ def handle_game_start(data):
         "all_players_points": {
             pln: int(data["initial_player_points"]) for pln in player_names
         },
-        "round_common_account_points": 0,
+        'round_deposits': {},
         "cards_selected_by_leader": [],
         "team": [],
         "effects_to_apply": [],
@@ -275,11 +275,6 @@ def change_player_points(game: dict, player_name, points: int):
         game["all_players_points"][player_name] + points, 0
     )
 
-    return game
-
-
-def change_project_points(game: dict, points: int):
-    game["round_common_account_points"] = game["round_common_account_points"] + points
     return game
 
 
@@ -347,7 +342,7 @@ def implement_project_result(game: dict):
     """Check whether team succeeded or failed in ended round"""
     card = game["cards_selected_by_leader"][0]
 
-    overpayment = int(game["round_common_account_points"]) - int(card["points_to_succeed"])
+    overpayment = sum(game['round_deposits'].values()) - int(card["points_to_succeed"])
 
     is_success = overpayment >= 0
 
@@ -388,7 +383,7 @@ def handle_make_project_deposit(data):
 
     game = get_game(room_id)
     game = change_player_points(game, data["player_name"], -points)
-    game = change_project_points(game, points)
+    game['round_deposits'][data["player_name"]] = points
 
     game, has_player_to_move_next = move_to_next_player(game)
     store_game(room_id, game)
@@ -415,8 +410,9 @@ def handle_make_project_deposit(data):
 
             emit("game_ended", payload, to=room_id)
         else:
+            # start next round
             game["round"] += 1
-            game["round_common_account_points"] = 0
+            game["round_deposits"] = {}
             game["cards_on_table"] = draw_cards(game['game_id'])
             game["cards_selected_by_leader"] = []
             game["team"] = []
