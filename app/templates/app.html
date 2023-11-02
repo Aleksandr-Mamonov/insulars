@@ -19,8 +19,8 @@
             font-size: 1.5rem;
         }
         .card {
-            min-width: 250px;
-            width: 250px;
+            min-width: 300px;
+            width: 300px;
             min-height: 300px;
             display: inline-block;
             margin-left: 5px;
@@ -191,7 +191,7 @@
 
                         <div class="col-auto"
                              v-for="p in room.players">
-                            <div class="portrait p-2 rounded-4"
+                            <div class="portrait p-2 rounded-4 mb-2"
                                  :style="{'background-image': 'url(/static/portrait' + (portraitIds[p.name] || 0) + '.jpg)'}">
                                 <div>
                                     <p><span class="p-1"><strong>${ p.name }$</strong></span></p>
@@ -328,7 +328,7 @@
                 <div class="row mb-4">
                     <div class="col-auto mx-1"
                          v-for="pl in room.players">
-                        <div class="portrait border p-2 rounded-4"
+                        <div class="portrait border p-2 rounded-4 mb-2"
                              :style="{'background-image': 'url(/static/portrait' + (portraitIds[pl.name] || 0) + '.jpg)'}"
                              :class="{'active border-info border-5': game.active_player == pl.name, 'border-secondary-subtle': game.active_player != pl.name, 'shadow': projectTeamMembersSelection[pl.name]}">
 
@@ -374,7 +374,7 @@
                                     <div class="col">
                                         <table-card @click="selectedCard = card.card_id"
                                             :card="card"
-                                            :class="{'border-3 shadow-lg border-info': selectedCard && (selectedCard === card.card_id)}"
+                                            :class="{'border-4 shadow-lg border-info': selectedCard && (selectedCard === card.card_id)}"
                                             v-for="card in game.cards_on_table"
                                             :key="card.card_id"
                                             :effects-visibility="game.card_effect_visibility"
@@ -455,25 +455,29 @@
     </div>
 
     <template id="TableCard">
-        <div class="card shadow-sm mx-3 border-1">
+        <div class="card shadow-sm me-3 mb-3 border-4 border-white">
             <div :style="{'background-image': 'url(/static/card/' + card.family.toLowerCase() + '_' + card.tier+ '.jpg)'}"
-                 style="background-size: cover; min-height: 250px;"
+                 style="background-size: cover; min-height: 300px;"
                  class="py-4">
-                <h5>
+                <div class="row mb-2">
+                    <div class="col text-start mx-2">
+                        <points-badge style="font-size: 1.4rem" :points="card.points_to_succeed"/>
+                    </div>
+
+                    <div class="col text-end mx-2 font-bigger" >
+                        <span class="bg-light px-2 py-1 rounded-pill text-dark">
+                            <span><i class="bi-person-fill-add me-2"></i></span>
+                            <span v-if="card.min_team != card.max_team">${ card.min_team }$ - ${ card.max_team }$</span>
+                            <span v-else>${ card.min_team }$</span>
+                        </span>
+                    </div>
+                </div>
+                <span class="bg-light px-2 py-1 rounded-pill text-dark"><small>${ card.family }$ ${ tiers[card.tier] }$</small></span>
+                <h4>
                     <span class="bg-light px-2 py-1 rounded-pill text-dark">
                         ${ card.name }$
                     </span>
-                </h5>
-                <p class="font-bigger">
-                    <span class="bg-light px-2 py-1 rounded-pill text-dark">
-                        <span><i class="bi-person-fill-add me-2"></i></span>
-                        <span v-if="card.min_team != card.max_team">${ card.min_team }$ - ${ card.max_team }$</span>
-                        <span v-else>${ card.min_team }$</span>
-                    </span>
-                </p>
-                <p>
-                    <span class="bg-light px-2 py-1 rounded-pill text-dark">Нужно собрать <points-badge :points="card.points_to_succeed"/></span>
-                </p>
+                </h4>
             </div>
 
             <div v-for="condition in ['on_success', 'on_failure']"
@@ -724,6 +728,17 @@
         });
         app.component('TableCard', {
             props: ['card', 'effectsVisibility', 'isLeader'],
+            data() {
+                return {
+                    tiers: {
+                        1: 'I',
+                        2: 'II',
+                        3: 'III',
+                        4: 'IV',
+                        5: 'V'
+                    },
+                }
+            },
             methods: {
                 parseCardEffect(effect) {
                     return effect ? JSON.parse(effect) : {}
