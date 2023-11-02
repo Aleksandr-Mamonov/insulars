@@ -237,10 +237,10 @@ def handle_game_start(data):
     for card in cards:
         write_to_db(
             """INSERT INTO game_deck (
-                game_id, card_id, family, tier, name, points_to_succeed, min_team, max_team, on_success, on_failure
+                game_id, card_id, family, tier, name, points_to_succeed, min_team, max_team, on_success, on_failure, vacancy
             )
             VALUES (
-                :game_id, :card_id, :family, :tier, :name, :points_to_succeed, :min_team, :max_team, :on_success, :on_failure
+                :game_id, :card_id, :family, :tier, :name, :points_to_succeed, :min_team, :max_team, :on_success, :on_failure, :vacancy
             )""",
             {
                 "game_id": game['game_id'],
@@ -253,6 +253,7 @@ def handle_game_start(data):
                 "max_team": card["max_team"],
                 "on_success": json.dumps(card["on_success"]),
                 "on_failure": json.dumps(card["on_failure"]),
+                "vacancy": json.dumps(card["vacancy"]),
             },
         )
 
