@@ -217,6 +217,7 @@ def handle_game_start(data):
         "game_id": str(uuid.uuid4()),
         "round": 1,
         "players": tuple(player_names),
+        'vacancies': {},
         "players_order_in_round": player_names,
         "players_to_move": player_names,
         "active_player": player_names[0],
@@ -366,6 +367,10 @@ def implement_project_result(game: dict):
             else:
                 game["effects_to_apply"].append(effect)
 
+    if is_success and card['vacancy']:
+        vacancy = json.loads(card['vacancy'])
+        game['vacancies'][vacancy['name']] = game['leader']
+
     if is_success:
         write_to_db(
             "UPDATE game_deck SET available=:available WHERE card_id=:card_id AND game_id=:game_id",
@@ -396,6 +401,7 @@ def handle_make_project_deposit(data):
         emit("move_started", payload, to=room_id)
     else:
         game, is_success = implement_project_result(game)
+
         store_game(room_id, game)
 
         emit("round_result", build_payload(room_id), to=room_id)
