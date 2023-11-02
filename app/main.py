@@ -362,10 +362,10 @@ def implement_project_result(game: dict):
 
     if is_success and card['vacancy']:
         vacancy = json.loads(card['vacancy'])
-        sorted_round_deposits = sorted(game['round_deposits'].items(), key=lambda item: int(item[1]))[::-1]
-        max_deposited_player = sorted_round_deposits[0][0]
-
-        game['vacancies'][vacancy['name']] = max_deposited_player
+        deposits = game['round_deposits']
+        max_dep = max(deposits.values())
+        max_dep_players = [pl for pl in deposits if deposits[pl] == max_dep]
+        game['vacancies'][vacancy['name']] = max_dep_players[0] if len(max_dep_players) == 1 else game['leader']
 
     if is_success:
         write_to_db(
