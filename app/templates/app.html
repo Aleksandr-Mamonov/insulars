@@ -455,14 +455,26 @@
     </div>
 
     <template id="TableCard">
-        <div class="card shadow-sm mx-3 border-1 py-4">
-            <h6>${ card.name }$</h6>
-            <p class="font-bigger">
-                <span><i class="bi-person-fill-add me-2"></i></span>
-                <span v-if="card.min_team != card.max_team">${ card.min_team }$ - ${ card.max_team }$</span>
-                <span v-else>${ card.min_team }$</span>
-            </p>
-            <p>Нужно собрать <points-badge :points="card.points_to_succeed"/></p>
+        <div class="card shadow-sm mx-3 border-1">
+            <div :style="{'background-image': 'url(/static/card/' + card.family.toLowerCase() + '_' + card.tier+ '.jpg)'}"
+                 style="background-size: cover; min-height: 250px;"
+                 class="py-4">
+                <h5>
+                    <span class="bg-light px-2 py-1 rounded-pill text-dark">
+                        ${ card.name }$
+                    </span>
+                </h5>
+                <p class="font-bigger">
+                    <span class="bg-light px-2 py-1 rounded-pill text-dark">
+                        <span><i class="bi-person-fill-add me-2"></i></span>
+                        <span v-if="card.min_team != card.max_team">${ card.min_team }$ - ${ card.max_team }$</span>
+                        <span v-else>${ card.min_team }$</span>
+                    </span>
+                </p>
+                <p>
+                    <span class="bg-light px-2 py-1 rounded-pill text-dark">Нужно собрать <points-badge :points="card.points_to_succeed"/></span>
+                </p>
+            </div>
 
             <div v-for="condition in ['on_success', 'on_failure']"
                  class="card-effect py-3 bg-gradient"

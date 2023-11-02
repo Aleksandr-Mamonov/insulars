@@ -233,7 +233,7 @@ def handle_game_start(data):
         "history": [],
     }
 
-    cards = build_deck(len(player_names) + 2)
+    cards = build_deck(len(player_names) + 1)
     for card in cards:
         write_to_db(
             """INSERT INTO game_deck (

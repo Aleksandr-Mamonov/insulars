@@ -151,7 +151,7 @@ def build_deck(families_num: int):
         _card("Bakery", 'Food', 2),
         _card("Canteen", 'Food', 3),
         _card("Restaurant", 'Food', 4),
-        _card("Food plant", 'Food', 5),
+        _card("Hotel", 'Food', 5),
 
         _card("Emergency room", 'Medicine', 1),
         _card("Local clinic", 'Medicine', 2),
