@@ -360,12 +360,13 @@ def implement_project_result(game: dict):
             else:
                 game["effects_to_apply"].append(effect)
 
-    if is_success and card['vacancy']:
+    if is_success and card['vacancy'] != 'null':
         vacancy = json.loads(card['vacancy'])
-        deposits = game['round_deposits']
-        max_dep = max(deposits.values())
-        max_dep_players = [pl for pl in deposits if deposits[pl] == max_dep]
-        game['vacancies'][vacancy['name']] = max_dep_players[0] if len(max_dep_players) == 1 else game['leader']
+        if vacancy:
+            deposits = game['round_deposits']
+            max_dep = max(deposits.values())
+            max_dep_players = [pl for pl in deposits if deposits[pl] == max_dep]
+            game['vacancies'][vacancy['name']] = max_dep_players[0] if len(max_dep_players) == 1 else game['leader']
 
     if is_success:
         write_to_db(

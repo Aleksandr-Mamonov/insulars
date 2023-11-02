@@ -452,7 +452,10 @@
                 </div>
 
                 <div class="row py-3" v-if="succeedCards.length > 0">
-                    <p>Построены: ${ succeedCards.map(c => c.name).join(', ') }$</p>
+                    <h5>Построены</h5>
+                    <div v-for="(card, family) in succeedCardsByFamilies" class="col-2">
+                        <div>${ family }$ ${ card.tier }$ - ${ card.name }$ </div>
+                    </div>
                 </div>
 
             </div>
@@ -626,6 +629,20 @@
                             return v
                         }, {})
                 },
+                succeedCardsByFamilies() {
+                    let families = {}
+
+                    this.succeedCards.forEach(card => {
+                        if (!(card.family in families)) {
+                            families[card.family] = card
+                        }
+                        if (families[card.family].tier < card.tier) {
+                            families[card.family] = card
+                        }
+                    })
+
+                    return families
+                }
             },
             methods: {
                 selectPortrait(id) {
