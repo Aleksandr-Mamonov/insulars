@@ -351,7 +351,7 @@
                             </div>
                         </div>
                         <div v-for="vacancy in playerVacancies(pl.name)">
-                            <span class="bg-info badge text-dark me-1 mb-1">${ vacancy }$</span>
+                            <span class="bg-info badge text-dark me-1 mb-1">${ vacancy }$ <points-badge :signed="true" style="font-size: 0.7rem" :points="vacancySalaries[vacancy]"></points-badge></span>
                         </div>
                     </div>
 
@@ -616,7 +616,16 @@
                     }
 
                     return selectedPlayers;
-                }
+                },
+                vacancySalaries() {
+                    return this.succeedCards
+                        .filter(c => c.vacancy && JSON.parse(c.vacancy))
+                        .reduce((v, c) => {
+                            let vcn = JSON.parse(c.vacancy)
+                            v[vcn.name] = vcn.income
+                            return v
+                        }, {})
+                },
             },
             methods: {
                 selectPortrait(id) {

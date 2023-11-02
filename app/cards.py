@@ -97,7 +97,7 @@ def _vacancy(name: str, income: int):
 
 
 def build_deck(families_num: int):
-    families_num = max([families_num, 10])
+    families_num = min([families_num, 10])
 
     cards = [
         _card("Rickshaw", 'Transport', 1, vacancy=_vacancy('Извозчик', 10)),

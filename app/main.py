@@ -271,9 +271,7 @@ def handle_game_start(data):
 
 
 def change_player_points(game: dict, player_name, points: int):
-    game["all_players_points"][player_name] = max(
-        game["all_players_points"][player_name] + points, 0
-    )
+    game["all_players_points"][player_name] = max(game["all_players_points"][player_name] + points, 0)
 
     return game
 
@@ -378,6 +376,16 @@ def implement_project_result(game: dict):
     return game, is_success
 
 
+def issue_salaries(game):
+    vacancies = [card['vacancy'] for card in build_deck(999) if card['vacancy']]
+    salaries = {vcn['name']: vcn['income'] for vcn in vacancies}
+
+    for vcn in game['vacancies']:
+        game = change_player_points(game, game['vacancies'][vcn], int(salaries[vcn]))
+
+    return game
+
+
 @socketio.on("make_project_deposit")
 def handle_make_project_deposit(data):
     """Player make a points deposit during project development"""
@@ -399,6 +407,7 @@ def handle_make_project_deposit(data):
         emit("move_started", payload, to=room_id)
     else:
         game, is_success = implement_project_result(game)
+        game = issue_salaries(game)
 
         store_game(room_id, game)
 
