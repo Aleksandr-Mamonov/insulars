@@ -11,7 +11,7 @@ from .config import (
     CARDS_ON_TABLE_IN_ROUND,
 )
 from .database import select_one_from_db, select_all_from_db, write_to_db
-from .cards import generate_cards, CARD_FAMILIES
+from .cards import build_deck
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
@@ -45,166 +45,18 @@ def _join_player_to_room(player_name, room_id):
     session["player_name"] = player_name
 
 
-def add_cards_to_deck(
-    game_id: str, players_number: int, card_families: dict, families_number: int
-):
-    chosen_card_families = dict(
-        random.sample(list(card_families.items()), families_number)
-    )
-    cards = generate_cards(chosen_card_families, players_number)
-    for card in cards:
-        write_to_db(
-            """INSERT INTO game_deck (game_id, card_family, card_tier, card_name, points_to_succeed, min_team, max_team, on_success, on_failure)
-             VALUES (:game_id, :card_family, :card_tier, :card_name, :points_to_succeed, :min_team, :max_team, :on_success, :on_failure)""",
-            {
-                "game_id": game_id,
-                "card_family": card["family"],
-                "card_tier": card["tier"],
-                "card_name": card["name"],
-                "points_to_succeed": card["points_to_succeed"],
-                "min_team": card["min_team"],
-                "max_team": card["max_team"],
-                "on_success": json.dumps(card["on_success"]),
-                "on_failure": json.dumps(card["on_failure"]),
-            },
-        )
-
-
-def draw_cards_for_round(game: dict) -> dict:
-    """
-    1) iterates over all succeeded cards and selects cards of next tiers from same families.
-    i.e. if 2nd tier card of family 'Shopping' is succeeded in previous round,
-    then it draws a 3rd tier card of 'Shopping' family and add it to cards list.
-    2) adds all available 1st tier cards to cards list
-    3) randomly chooses <CARDS_ON_TABLE_IN_ROUND> from cards list and update them as unavailable in game_deck
-    4) returns chosen cards
-    """
-    game_id = game["game_id"]
-    cards = []
-    if game["history"]:
-        families_max_tiers = {}
-        for item in game["history"]:
-            card_tier = int(item["card"]["card_tier"])
-            card_family = item["card"]["card_family"]
-            if item["succeeded"] == True and card_tier != 5:
-                max_tier = families_max_tiers.get(card_family)
-                if max_tier:
-                    if card_tier > int(max_tier):
-                        families_max_tiers[card_family] = str(card_tier)
-                else:
-                    families_max_tiers[card_family] = str(card_tier)
-            elif card_tier == 5:
-                families_max_tiers.pop(card_family)
-                switch_card_availability_to(False, item["card"]["card_id"], game_id)
-
-        succeeded_cards_with_next_tier_available = [
-            item["card"]
-            for item in game["history"]
-            if item["card"]["card_family"] in families_max_tiers.keys()
-            and item["card"]["card_tier"]
-            == families_max_tiers[item["card"]["card_family"]]
-            and item["card"]["card_tier"] != "5"
-        ]
-        if succeeded_cards_with_next_tier_available:
-            for card in succeeded_cards_with_next_tier_available:
-                family = card["card_family"]
-                next_tier = int(card["card_tier"]) + 1
-                next_tier_card = select_one_from_db(
-                    """
-                    SELECT 
-                        gd.card_id,
-                        gd.card_family,
-                        gd.card_tier,
-                        gd.card_name as name,
-                        gd.points_to_succeed,
-                        gd.min_team,
-                        gd.max_team,
-                        gd.on_success,
-                        gd.on_failure
-                    FROM game_deck AS gd 
-                    WHERE gd.game_id=:game_id 
-                    AND gd.card_family=:card_family 
-                    AND gd.card_tier=:card_tier
-                    """,
-                    {
-                        "game_id": game_id,
-                        "card_family": family,
-                        "card_tier": str(next_tier),
-                    },
-                )
-                cards.append(next_tier_card)
-
-    remained_first_tiers = select_one_from_db(
-        """
-        SELECT COUNT(*) AS count
-        FROM game_deck AS gd 
-        WHERE gd.game_id=:game_id 
-        AND gd.available=TRUE
-        AND gd.card_tier='1'
-        """,
-        {"game_id": game_id},
-    )["count"]
-
-    if len(cards) + remained_first_tiers < CARDS_ON_TABLE_IN_ROUND:
-        remained_families_names = select_all_from_db(
-            """
-                SELECT DISTINCT family
-                FROM cards
-                EXCEPT
-                SELECT DISTINCT card_family
-                FROM game_deck
-                WHERE game_deck.game_id=:game_id
-            """,
-            {"game_id": game_id},
-        )
-        remained_families_names = [
-            family["family"] for family in remained_families_names
-        ]
-        remained_card_families = {
-            family: CARD_FAMILIES[family] for family in remained_families_names
-        }
-        add_cards_to_deck(
-            game_id=game_id,
-            players_number=len(game["players"]),
-            card_families=remained_card_families,
-            families_number=1,
-        )
-
-    available_first_tier_cards = select_all_from_db(
-        """
-    SELECT
-        gd.card_id,
-        gd.card_family,
-        gd.card_tier,
-        gd.card_name as name,
-        gd.points_to_succeed,
-        gd.min_team,
-        gd.max_team,
-        gd.on_success,
-        gd.on_failure
-    FROM game_deck AS gd
-    WHERE gd.game_id=:game_id
-    AND gd.available=TRUE
-    AND gd.card_tier='1'
-    """,
-        {"game_id": game_id},
-    )
-    cards.extend(available_first_tier_cards)
-    chosen_cards = random.sample(cards, CARDS_ON_TABLE_IN_ROUND)
-    for card in chosen_cards:
-        write_to_db(
-            "UPDATE game_deck SET available=FALSE WHERE card_id=:card_id AND game_id=:game_id",
-            {"card_id": card["card_id"], "game_id": game_id},
-        )
-
-    return chosen_cards
-
-
-def switch_card_availability_to(available: bool, card_id, game_id):
-    write_to_db(
-        "UPDATE game_deck SET available=:available WHERE card_id=:card_id AND game_id=:game_id",
-        {"card_id": card_id, "game_id": game_id, "available": available},
-    )
+def draw_cards(game_id):
+    return select_all_from_db(f"""
+        SELECT gd2.* FROM game_deck gd2
+        INNER JOIN (
+            SELECT gd1.family, MIN(gd1.tier) as tier FROM game_deck gd1
+            WHERE gd1.available=TRUE AND gd1.game_id=:game_id
+            GROUP BY 1
+        ) as min_tier ON min_tier.tier = gd2.tier AND min_tier.family=gd2.family
+        WHERE gd2.game_id = :game_id 
+        ORDER BY RANDOM()
+        LIMIT {CARDS_ON_TABLE_IN_ROUND}
+    """, {'game_id': game_id})
 
 
 def rotate_players_order_in_round(game: dict):
@@ -357,15 +209,12 @@ def handle_player_enter(data):
 @socketio.on("start_game")
 def handle_game_start(data):
     room_id = data["room_id"]
-    game_id = str(uuid.uuid4())
-    players = select_all_from_db(
-        "SELECT player_name FROM room_players WHERE room_id=:room_id",
-        {"room_id": room_id},
-    )
+
+    players = select_all_from_db("SELECT player_name FROM room_players WHERE room_id=:room_id", {"room_id": room_id})
     player_names = [pl["player_name"] for pl in players]
 
     game = {
-        "game_id": game_id,
+        "game_id": str(uuid.uuid4()),
         "round": 1,
         "players": tuple(player_names),
         "players_order_in_round": player_names,
@@ -383,25 +232,38 @@ def handle_game_start(data):
         "card_effect_visibility": data["card_effect_visibility"],
         "history": [],
     }
-    add_cards_to_deck(
-        game_id=game_id,
-        players_number=len(player_names),
-        card_families=CARD_FAMILIES,
-        families_number=len(player_names),
-    )
-    cards_on_table = draw_cards_for_round(game)
-    game["cards_on_table"] = cards_on_table
-    rm = select_one_from_db(
-        "SELECT number_of_games FROM rooms WHERE uid=:room_id", {"room_id": room_id}
-    )
+
+    cards = build_deck(len(player_names) + 1)
+    for card in cards:
+        write_to_db(
+            """INSERT INTO game_deck (
+                game_id, card_id, family, tier, name, points_to_succeed, min_team, max_team, on_success, on_failure
+            )
+            VALUES (
+                :game_id, :card_id, :family, :tier, :name, :points_to_succeed, :min_team, :max_team, :on_success, :on_failure
+            )""",
+            {
+                "game_id": game['game_id'],
+                "card_id": card['name'],
+                "family": card["family"],
+                "tier": card["tier"],
+                "name": card["name"],
+                "points_to_succeed": card["points_to_succeed"],
+                "min_team": card["min_team"],
+                "max_team": card["max_team"],
+                "on_success": json.dumps(card["on_success"]),
+                "on_failure": json.dumps(card["on_failure"]),
+            },
+        )
+
+    game["cards_on_table"] = draw_cards(game['game_id'])
+
+    rm = select_one_from_db("SELECT number_of_games FROM rooms WHERE uid=:room_id", {"room_id": room_id})
     if rm["number_of_games"] > 0:
         for rotation in range(rm["number_of_games"] % len(player_names)):
             game = rotate_players_order_in_round(game)
 
-    write_to_db(
-        "UPDATE rooms SET game=:game WHERE uid=:room_id",
-        {"game": json.dumps(game), "room_id": room_id},
-    )
+    write_to_db("UPDATE rooms SET game=:game WHERE uid=:room_id", {"game": json.dumps(game), "room_id": room_id})
 
     emit("game_started", build_payload(room_id), to=data["room_id"])
 
@@ -424,35 +286,24 @@ def handle_select_cards_from_table(data):
     """Card(s) can be selected only by leader in current round."""
     room_id = data["room_id"]
     game = get_game(room_id)
+
     for card in game["cards_on_table"]:
-        card_id = card["card_id"]
-        for selected_card_id in data["selected_cards_ids"]:
-            if selected_card_id == card_id:
-                game["cards_selected_by_leader"].append(card)
-                break
-        if card not in game["cards_selected_by_leader"]:
-            write_to_db(
-                "UPDATE game_deck SET available=TRUE WHERE card_id=:card_id AND game_id=:game_id",
-                {"card_id": card["card_id"], "game_id": game["game_id"]},
-            )
-    game["cards_on_table"].clear()
+        if card['card_id'] == data["selected_card_id"]:
+            game["cards_selected_by_leader"].append(card)
+            break
+
     store_game(room_id, game)
     emit("cards_for_round_selected", build_payload(room_id), to=room_id)
 
 
 def get_game(room_id):
-    result = select_one_from_db(
-        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": room_id}
-    )
+    result = select_one_from_db("SELECT game FROM rooms WHERE uid=:room_id", {"room_id": room_id})
 
     return json.loads(result["game"]) if result["game"] else None
 
 
 def store_game(room_id, game):
-    write_to_db(
-        "UPDATE rooms SET game=:game WHERE uid=:room_id",
-        {"game": json.dumps(game), "room_id": room_id},
-    )
+    write_to_db("UPDATE rooms SET game=:game WHERE uid=:room_id", {"game": json.dumps(game), "room_id": room_id})
 
 
 def move_to_next_player(game: dict):
@@ -491,53 +342,36 @@ def populate_players_to_whom_apply_effect(game: dict, effect: dict):
 
 
 def implement_project_result(game: dict):
-    # Check whether team succeeded or failed in ended round
-    points_to_succeed = sum(
-        [int(card["points_to_succeed"]) for card in game["cards_selected_by_leader"]]
-    )
-    points_collected_by_team = game["round_common_account_points"]
+    """Check whether team succeeded or failed in ended round"""
+    card = game["cards_selected_by_leader"][0]
 
-    is_success = points_collected_by_team >= points_to_succeed
-    game["round_delta"] = points_collected_by_team - points_to_succeed
-    for card in game["cards_selected_by_leader"]:
-        game["history"].append({"card": card, "succeeded": is_success})
-        effects = json.loads(card["on_success" if is_success else "on_failure"])
-        for effect in effects:
-            if effect:
-                effect = populate_players_to_whom_apply_effect(game, effect)
-                if effect["name"] == "cancel_effects":
-                    game["effects_to_apply"] = [effect] + game["effects_to_apply"]
-                else:
-                    game["effects_to_apply"].append(effect)
+    overpayment = int(game["round_common_account_points"]) - int(card["points_to_succeed"])
+
+    is_success = overpayment >= 0
+
+    game["round_delta"] = overpayment
+    game["latest_round_result"] = is_success
+    game["history"].append({
+        "card": card,
+        "succeeded": is_success
+    })
+
+    effects = json.loads(card["on_success" if is_success else "on_failure"])
+    for effect in effects:
+        if effect:
+            effect = populate_players_to_whom_apply_effect(game, effect)
+            if effect["name"] == "cancel_effects":
+                game["effects_to_apply"] = [effect] + game["effects_to_apply"]
+            else:
+                game["effects_to_apply"].append(effect)
+
+    if is_success:
+        write_to_db(
+            "UPDATE game_deck SET available=:available WHERE card_id=:card_id AND game_id=:game_id",
+            {"card_id": card['card_id'], "game_id": game['game_id'], "available": False},
+        )
 
     return game, is_success
-
-
-def start_next_round(game: dict):
-    game["round"] += 1
-    # That was last round, so game ended. Show game results.
-    if game["round"] > game["rounds"]:
-        return None, game
-    else:
-        players_order_in_new_round = game["players_order_in_round"]
-        # Rotate players order for next round
-        players_order_in_new_round.append(players_order_in_new_round.pop(0))
-        game["round_common_account_points"] = 0
-        if game["latest_round_result"] == False:
-            for card in game["cards_selected_by_leader"]:
-                write_to_db(
-                    "UPDATE game_deck SET available=TRUE WHERE card_id=:card_id AND game_id=:game_id",
-                    {"card_id": card["card_id"], "game_id": game["game_id"]},
-                )
-        new_cards_on_table = draw_cards_for_round(game)
-        game["cards_on_table"] = new_cards_on_table
-        game["cards_selected_by_leader"] = []
-        game["team"] = []
-        game["players_order_in_round"] = players_order_in_new_round
-        game["players_to_move"] = players_order_in_new_round
-        game["active_player"] = players_order_in_new_round[0]
-        game["leader"] = players_order_in_new_round[0]
-        return game["round"], game
 
 
 @socketio.on("make_project_deposit")
@@ -545,6 +379,7 @@ def handle_make_project_deposit(data):
     """Player make a points deposit during project development"""
     room_id = data["room_id"]
     points = int(data["points"])
+
     game = get_game(room_id)
     game = change_player_points(game, data["player_name"], -points)
     game = change_project_points(game, points)
@@ -555,29 +390,41 @@ def handle_make_project_deposit(data):
     payload = build_payload(room_id)
     emit("project_deposited", payload, to=room_id)
     emit("player_points_changed", payload, to=room_id)
+
     if has_player_to_move_next:
         emit("move_started", payload, to=room_id)
     else:
         game, is_success = implement_project_result(game)
-        game["latest_round_result"] = is_success
         store_game(room_id, game)
 
         emit("round_result", build_payload(room_id), to=room_id)
 
-        next_round_n, game = start_next_round(game)
-        game = apply_effects(game, game["effects_to_apply"])
+        is_game_over = game["round"] >= game["rounds"]
+        if is_game_over:
+            write_to_db("UPDATE rooms SET game=NULL, number_of_games=number_of_games+1 WHERE uid=:room_id", {"room_id": room_id})
 
-        if next_round_n is None:
-            write_to_db(
-                "UPDATE rooms SET game=NULL, number_of_games=number_of_games+1 WHERE uid=:room_id",
-                {"room_id": room_id},
-            )
-
-            rating = define_rating(game)
             payload = build_payload(room_id)
-            payload["rating"] = rating
+            payload["rating"] = define_rating(game)
+
             emit("game_ended", payload, to=room_id)
         else:
+            game["round"] += 1
+            game["round_common_account_points"] = 0
+            game["cards_on_table"] = draw_cards(game['game_id'])
+            game["cards_selected_by_leader"] = []
+            game["team"] = []
+
+            # Rotate players order for next round
+            players_order_in_new_round = game["players_order_in_round"]
+            players_order_in_new_round.append(players_order_in_new_round.pop(0))
+
+            game["players_order_in_round"] = players_order_in_new_round
+            game["players_to_move"] = players_order_in_new_round
+            game["active_player"] = players_order_in_new_round[0]
+            game["leader"] = players_order_in_new_round[0]
+
+            game = apply_effects(game, game["effects_to_apply"])
+
             store_game(room_id, game)
             emit("round_started", build_payload(room_id), to=room_id)
 
