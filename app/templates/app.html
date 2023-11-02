@@ -516,8 +516,8 @@
                     </div>
                 </div>
 
-                <span v-if="condition == 'on_success' && card.vacancy">
-                    Доступна вакансия: <span class="bg-info badge text-dark"><b>${ vacancy.name }$</b> <points-badge :signed="true" :points="vacancy.income" /></span>
+                <span v-if="condition == 'on_success' && vacancy">
+                    Доступна вакансия: <span class="bg-info badge text-dark"><b>${ vacancy.name }$</b> <points-badge style="font-size: 0.7rem;" :signed="true" :points="vacancy.income" /></span>
                 </span>
             </div>
         </div>
@@ -748,7 +748,7 @@
             },
             computed: {
                 vacancy() {
-                    return (this.card.vacancy && JSON.parse(this.card.vacancy)) || {}
+                    return (this.card.vacancy && JSON.parse(this.card.vacancy)) || null
                 }
             },
             methods: {
