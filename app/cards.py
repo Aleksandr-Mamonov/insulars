@@ -57,8 +57,8 @@ card_features = {
     "Culture": "decrease_clerks_pay",
     "Food": "increase_basic_income_for_all",
     "Medicine": "decrease_basic_income_for_all",
-    "Entertainment": "increase_basic_income_for_random",
-    "Finance": "decrease_basic_income_for_random",
+    "Entertainment": "increase_basic_income_for_random_player",
+    "Finance": "decrease_basic_income_for_random_player",
 }
 features_tiers_multiples = {
     "decrease": {1: 0.9, 3: 0.7, 5: 0.5},

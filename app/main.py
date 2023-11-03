@@ -9,6 +9,7 @@ from .config import (
     MIN_PLAYERS,
     MAX_PLAYERS,
     CARDS_ON_TABLE_IN_ROUND,
+    STARTING_BASIC_INCOME,
 )
 from .database import select_one_from_db, select_all_from_db, write_to_db
 from .cards import build_deck
@@ -237,6 +238,7 @@ def handle_game_start(data):
         "rounds": int(data["rounds"]),
         "card_effect_visibility": data["card_effect_visibility"],
         "history": [],
+        "incomes": {},
     }
 
     cards = build_deck(len(player_names) + 1)
@@ -284,7 +286,6 @@ def change_player_points(game: dict, player_name, points: int):
     game["all_players_points"][player_name] = max(
         game["all_players_points"][player_name] + points, 0
     )
-
     return game
 
 
@@ -358,6 +359,78 @@ def populate_players_to_whom_apply_effect(game: dict, effect: dict):
     return effect
 
 
+def activate_card_feature(card: dict, game: dict):
+    game_id = game["game_id"]
+    if card.get("feature"):
+        feature = card["feature"]["name"]
+        multiple = card["feature"]["multiple"]
+        if feature in ["decrease_cards_costs", "increase_cards_costs"]:
+            # change points to succeed for all cards
+            write_to_db(
+                """
+                UPDATE game_deck 
+                SET points_to_succeed=:multiple * points_to_succeed 
+                WHERE game_id=:game_id""",
+                {
+                    "game_id": game_id,
+                    "multiple": multiple,
+                },
+            )
+        elif feature in ["decrease_cards_rewards", "increase_cards_rewards"]:
+            # change rewards on success for all availablecards
+            all_cards = select_all_from_db(
+                """
+                SELECT card_id, on_success 
+                FROM game_deck
+                WHERE game_id=:game_id
+                """,
+                {
+                    "game_id": game_id,
+                },
+            )
+            for c in all_cards:
+                c["on_success"] = json.loads(c["on_success"])
+                for effect in c["on_success"]:
+                    if effect["name"] == "change_player_points":
+                        effect["payload"]["points"] *= multiple
+                write_to_db(
+                    """
+                UPDATE game_deck 
+                SET on_success=:on_success
+                WHERE card_id=:card_id
+                AND game_id=:game_id
+                """,
+                    {
+                        "on_success": json.dumps(c["on_success"]),
+                        "card_id": c["card_id"],
+                        "game_id": game_id,
+                    },
+                )
+        elif feature in ["increase_clerks_pay", "decrease_clerks_pay"]:
+            # TODO
+            pass
+        elif feature in [
+            "increase_basic_income_for_all",
+            "decrease_basic_income_for_all",
+        ]:
+            if card["tier"] == 1:
+                game["incomes"]["basic_income_for_all"] = STARTING_BASIC_INCOME
+            else:
+                game["incomes"]["basic_income_for_all"] *= multiple
+        elif feature in [
+            "increase_basic_income_for_random_player",
+            "decrease_basic_income_for_random_player",
+        ]:
+            if card["tier"] == 1:
+                game["incomes"][
+                    "basic_income_for_random_player"
+                ] = STARTING_BASIC_INCOME
+            else:
+                game["incomes"]["basic_income_for_random_player"] *= multiple
+
+    return game
+
+
 def implement_project_result(game: dict):
     """Check whether team succeeded or failed in ended round"""
     card = game["cards_selected_by_leader"][0]
@@ -371,7 +444,8 @@ def implement_project_result(game: dict):
     game["round_delta"] = overpayment
     game["latest_round_result"] = is_success
     game["history"].append({"card": card, "succeeded": is_success})
-
+    if is_success:
+        game = activate_card_feature(card, game)
     effects = json.loads(card["on_success" if is_success else "on_failure"])
     for effect in effects:
         if effect:
@@ -392,6 +466,10 @@ def implement_project_result(game: dict):
         )
 
     return game, is_success
+
+
+def pay_incomes(game: dict):
+    return game
 
 
 @socketio.on("make_project_deposit")
@@ -447,7 +525,7 @@ def handle_make_project_deposit(data):
             game["leader"] = players_order_in_new_round[0]
 
             game = apply_effects(game, game["effects_to_apply"])
-
+            game = pay_incomes(game)
             store_game(room_id, game)
             emit("round_started", build_payload(room_id), to=room_id)
 

@@ -12,19 +12,6 @@ def init_db():
         "CREATE TABLE IF NOT EXISTS room_players (room_id, player_name, portrait_id)"
     )
     cur.execute(
-        """CREATE TABLE IF NOT EXISTS cards (
-        family,
-        tier,
-        name UNIQUE,
-        points_to_succeed,
-        min_team,
-        max_team,
-        on_success,
-        on_failure
-    )"""
-    )
-
-    cur.execute(
         """CREATE TABLE IF NOT EXISTS game_deck (
         game_id,
         card_id, 
