@@ -48,13 +48,32 @@ EFFECTS = [
 ]
 
 
+card_features = {
+    "Transport": "decrease_cards_costs",
+    "Shopping": "increase_cards_costs",
+    "Education": "increase_cards_rewards",
+    "Religion": "decrease_cards_rewards",
+    "Government": "increase_clerks_pay",
+    "Culture": "decrease_clerks_pay",
+    "Food": "increase_basic_income_for_all",
+    "Medicine": "decrease_basic_income_for_all",
+    "Entertainment": "increase_basic_income_for_random_player",
+    "Finance": "decrease_basic_income_for_random_player",
+}
+features_tiers_multiples = {
+    "decrease": {1: 0.9, 3: 0.7, 5: 0.5},
+    "increase": {1: 1.1, 3: 1.3, 5: 1.5},
+}
+
+
+
 def _card(name: str, family: str, tier: int, vacancy=None):
-    return {
+    card = {
         "family": family,
         "tier": tier,
         "name": name,
         "points_to_succeed": int(tier) * 10,
-        "min_team": max([tier-1, 2]),
+        "min_team": max([tier - 1, 2]),
         "max_team": max([tier, 2]),
         "vacancy": vacancy,
         "on_success": [
@@ -90,7 +109,18 @@ def _card(name: str, family: str, tier: int, vacancy=None):
             },
         ],
     }
-
+    feature = card_features[family]
+    if tier in [1, 3, 5] and feature.startswith("increase"):
+        card["feature"] = {
+            "name": feature,
+            "multiple": features_tiers_multiples["increase"][tier],
+        }
+    elif tier in [1, 3, 5] and feature.startswith("decrease"):
+        card["feature"] = {
+            "name": feature,
+            "multiple": features_tiers_multiples["decrease"][tier],
+        }
+    return card
 
 def _vacancy(name: str, income: int):
     return {'name': name, 'income': income}
@@ -98,7 +128,6 @@ def _vacancy(name: str, income: int):
 
 def build_deck(families_num: int):
     families_num = min([families_num, 10])
-
     cards = [
         _card("Rickshaw", 'Transport', 1, vacancy=_vacancy('Извозчик', 10)),
         _card("Bike rental network", 'Transport', 2),
@@ -161,8 +190,7 @@ def build_deck(families_num: int):
         _card("Ministry of finance", 'Finance', 5, vacancy=_vacancy('Финансист', 80)),
     ]
 
-    families = list(set([card['family'] for card in cards]))
+    families = list(set([card["family"] for card in cards]))
     deck_card_families = random.sample(families, families_num)
 
-    return [card for card in cards if card['family'] in deck_card_families]
-
+    return [card for card in cards if card["family"] in deck_card_families]
