@@ -238,7 +238,7 @@ def handle_game_start(data):
         "rounds": int(data["rounds"]),
         "card_effect_visibility": data["card_effect_visibility"],
         "history": [],
-        "incomes": {},
+        "incomes": {"basic_income_for_all": 0, "basic_income_for_random_player": 0},
     }
 
     cards = build_deck(len(player_names) + 1)
@@ -361,15 +361,18 @@ def populate_players_to_whom_apply_effect(game: dict, effect: dict):
 
 def activate_card_feature(card: dict, game: dict):
     game_id = game["game_id"]
+    basic_for_all = game["incomes"]["basic_income_for_all"]
+    basic_for_random = game["incomes"]["basic_income_for_random_player"]
     if card.get("feature"):
-        feature = card["feature"]["name"]
-        multiple = card["feature"]["multiple"]
+        feat = json.loads(card["feature"])
+        feature = feat["name"]
+        multiple = feat["multiple"]
         if feature in ["decrease_cards_costs", "increase_cards_costs"]:
             # change points to succeed for all cards
             write_to_db(
                 """
                 UPDATE game_deck 
-                SET points_to_succeed=:multiple * points_to_succeed 
+                SET points_to_succeed=ROUND(:multiple * points_to_succeed)
                 WHERE game_id=:game_id""",
                 {
                     "game_id": game_id,
@@ -392,7 +395,9 @@ def activate_card_feature(card: dict, game: dict):
                 c["on_success"] = json.loads(c["on_success"])
                 for effect in c["on_success"]:
                     if effect["name"] == "change_player_points":
-                        effect["payload"]["points"] *= multiple
+                        effect["payload"]["points"] = round(
+                            effect["payload"]["points"] * multiple
+                        )
                 write_to_db(
                     """
                 UPDATE game_deck 
@@ -409,25 +414,27 @@ def activate_card_feature(card: dict, game: dict):
         elif feature in ["increase_clerks_pay", "decrease_clerks_pay"]:
             # TODO
             pass
-        elif feature in [
-            "increase_basic_income_for_all",
-            "decrease_basic_income_for_all",
-        ]:
-            if card["tier"] == 1:
-                game["incomes"]["basic_income_for_all"] = STARTING_BASIC_INCOME
-            else:
-                game["incomes"]["basic_income_for_all"] *= multiple
-        elif feature in [
-            "increase_basic_income_for_random_player",
-            "decrease_basic_income_for_random_player",
-        ]:
-            if card["tier"] == 1:
-                game["incomes"][
-                    "basic_income_for_random_player"
-                ] = STARTING_BASIC_INCOME
-            else:
-                game["incomes"]["basic_income_for_random_player"] *= multiple
 
+        elif feature == "increase_basic_income_for_all":
+            if card["tier"] == 1:
+                basic_for_all = round(STARTING_BASIC_INCOME * multiple)
+            else:
+                basic_for_all = round(basic_for_all * multiple)
+        elif feature == "decrease_basic_income_for_all":
+            if basic_for_all > 0:
+                basic_for_all = round(basic_for_all * multiple)
+
+        elif feature == "increase_basic_income_for_random_player":
+            if card["tier"] == 1:
+                basic_for_random = round(STARTING_BASIC_INCOME * multiple)
+            else:
+                basic_for_random = round(basic_for_random * multiple)
+        elif feature == "decrease_basic_income_for_random_player":
+            if basic_for_random > 0:
+                basic_for_random = round(basic_for_random * multiple)
+
+        game["incomes"]["basic_income_for_all"] = basic_for_all
+        game["incomes"]["basic_income_for_random_player"] = basic_for_random
     return game
 
 
@@ -469,6 +476,16 @@ def implement_project_result(game: dict):
 
 
 def pay_incomes(game: dict):
+    basic_income = game["incomes"]["basic_income_for_all"]
+    if basic_income != 0:
+        for player in game["players"]:
+            game = change_player_points(game, player, basic_income)
+
+    basic_income_for_random = game["incomes"]["basic_income_for_random_player"]
+    if basic_income_for_random != 0:
+        game = change_player_points(
+            game, random.choice(game["players"]), basic_income_for_random
+        )
     return game
 
 
