@@ -350,8 +350,8 @@
                                 </p>
                             </div>
                         </div>
-                        <div v-for="vacancy in playerVacancies(pl.name)">
-                            <span class="bg-info badge text-dark me-1 mb-1">${ vacancy }$ <points-badge :signed="true" style="font-size: 0.7rem" :points="vacancySalaries[vacancy]"></points-badge></span>
+                        <div v-for="vcn in playerVacancies(pl.name)">
+                            <span class="bg-info badge text-dark me-1 mb-1">${ vcn.name }$ <points-badge :signed="true" style="font-size: 0.7rem" :points="vcn.income"></points-badge></span>
                         </div>
                     </div>
 
@@ -620,15 +620,6 @@
 
                     return selectedPlayers;
                 },
-                vacancySalaries() {
-                    return this.succeedCards
-                        .filter(c => c.vacancy && JSON.parse(c.vacancy))
-                        .reduce((v, c) => {
-                            let vcn = JSON.parse(c.vacancy)
-                            v[vcn.name] = vcn.income
-                            return v
-                        }, {})
-                },
                 succeedCardsByFamilies() {
                     let families = {}
 
@@ -709,7 +700,9 @@
                     this.projectTeamMembersSelection = {};
                 },
                 playerVacancies(plName) {
-                    return Object.entries(this.game.vacancies).filter(v => v[1] === plName).map(v => v[0]);
+                    return Object.values(this.game.vacancies)
+                        .filter(v => v.assignee === plName)
+                        .map(v => JSON.parse(v.vacancy));
                 }
             },
             mounted() {
