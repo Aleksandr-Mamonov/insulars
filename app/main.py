@@ -9,6 +9,7 @@ from .config import (
     MIN_PLAYERS,
     MAX_PLAYERS,
     CARDS_ON_TABLE_IN_ROUND,
+    STARTING_BASIC_INCOME,
 )
 from .database import select_one_from_db, select_all_from_db, write_to_db
 from .cards import build_deck
@@ -46,7 +47,8 @@ def _join_player_to_room(player_name, room_id):
 
 
 def draw_cards(game_id):
-    return select_all_from_db(f"""
+    return select_all_from_db(
+        f"""
         SELECT gd2.* FROM game_deck gd2
         INNER JOIN (
             SELECT gd1.family, MIN(gd1.tier) as tier FROM game_deck gd1
@@ -56,7 +58,9 @@ def draw_cards(game_id):
         WHERE gd2.game_id = :game_id 
         ORDER BY RANDOM()
         LIMIT {CARDS_ON_TABLE_IN_ROUND}
-    """, {'game_id': game_id})
+    """,
+        {"game_id": game_id},
+    )
 
 
 def rotate_players_order_in_round(game: dict):
@@ -210,7 +214,10 @@ def handle_player_enter(data):
 def handle_game_start(data):
     room_id = data["room_id"]
 
-    players = select_all_from_db("SELECT player_name FROM room_players WHERE room_id=:room_id", {"room_id": room_id})
+    players = select_all_from_db(
+        "SELECT player_name FROM room_players WHERE room_id=:room_id",
+        {"room_id": room_id},
+    )
     player_names = [pl["player_name"] for pl in players]
 
     game = {
@@ -232,20 +239,21 @@ def handle_game_start(data):
         "rounds": int(data["rounds"]),
         "card_effect_visibility": data["card_effect_visibility"],
         "history": [],
+        "incomes": {"basic_income_for_all": 0, "basic_income_for_random_player": 0},
     }
 
     cards = build_deck(len(player_names) + 1)
     for card in cards:
         write_to_db(
             """INSERT INTO game_deck (
-                game_id, card_id, family, tier, name, points_to_succeed, min_team, max_team, on_success, on_failure, vacancy
+                game_id, card_id, family, tier, name, points_to_succeed, min_team, max_team, on_success, on_failure, feature, vacancy
             )
             VALUES (
-                :game_id, :card_id, :family, :tier, :name, :points_to_succeed, :min_team, :max_team, :on_success, :on_failure, :vacancy
+                :game_id, :card_id, :family, :tier, :name, :points_to_succeed, :min_team, :max_team, :on_success, :on_failure, :feature, :vacancy
             )""",
             {
-                "game_id": game['game_id'],
-                "card_id": card['name'],
+                "game_id": game["game_id"],
+                "card_id": card["name"],
                 "family": card["family"],
                 "tier": card["tier"],
                 "name": card["name"],
@@ -254,25 +262,30 @@ def handle_game_start(data):
                 "max_team": card["max_team"],
                 "on_success": json.dumps(card["on_success"]),
                 "on_failure": json.dumps(card["on_failure"]),
+                "feature": json.dumps(card.get("feature")),
                 "vacancy": json.dumps(card["vacancy"]),
             },
         )
 
-    game["cards_on_table"] = draw_cards(game['game_id'])
+    game["cards_on_table"] = draw_cards(game["game_id"])
 
-    rm = select_one_from_db("SELECT number_of_games FROM rooms WHERE uid=:room_id", {"room_id": room_id})
+    rm = select_one_from_db(
+        "SELECT number_of_games FROM rooms WHERE uid=:room_id", {"room_id": room_id}
+    )
     if rm["number_of_games"] > 0:
         for rotation in range(rm["number_of_games"] % len(player_names)):
             game = rotate_players_order_in_round(game)
 
-    write_to_db("UPDATE rooms SET game=:game WHERE uid=:room_id", {"game": json.dumps(game), "room_id": room_id})
+    write_to_db(
+        "UPDATE rooms SET game=:game WHERE uid=:room_id",
+        {"game": json.dumps(game), "room_id": room_id},
+    )
 
     emit("game_started", build_payload(room_id), to=data["room_id"])
 
 
 def change_player_points(game: dict, player_name, points: int):
     game["all_players_points"][player_name] = max(game["all_players_points"][player_name] + points, 0)
-
     return game
 
 
@@ -283,7 +296,7 @@ def handle_select_cards_from_table(data):
     game = get_game(room_id)
 
     for card in game["cards_on_table"]:
-        if card['card_id'] == data["selected_card_id"]:
+        if card["card_id"] == data["selected_card_id"]:
             game["cards_selected_by_leader"].append(card)
             break
 
@@ -292,13 +305,18 @@ def handle_select_cards_from_table(data):
 
 
 def get_game(room_id):
-    result = select_one_from_db("SELECT game FROM rooms WHERE uid=:room_id", {"room_id": room_id})
+    result = select_one_from_db(
+        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": room_id}
+    )
 
     return json.loads(result["game"]) if result["game"] else None
 
 
 def store_game(room_id, game):
-    write_to_db("UPDATE rooms SET game=:game WHERE uid=:room_id", {"game": json.dumps(game), "room_id": room_id})
+    write_to_db(
+        "UPDATE rooms SET game=:game WHERE uid=:room_id",
+        {"game": json.dumps(game), "room_id": room_id},
+    )
 
 
 def move_to_next_player(game: dict):
@@ -352,10 +370,88 @@ def assign_vacancy(game, card):
     return game
 
 
+def activate_card_feature(card: dict, game: dict):
+    game_id = game["game_id"]
+    basic_for_all = game["incomes"]["basic_income_for_all"]
+    basic_for_random = game["incomes"]["basic_income_for_random_player"]
+    if card.get("feature"):
+        feat = json.loads(card["feature"])
+        feature = feat["name"]
+        multiple = feat["multiple"]
+        if feature in ["decrease_cards_costs", "increase_cards_costs"]:
+            # change points to succeed for all cards
+            write_to_db(
+                """
+                UPDATE game_deck 
+                SET points_to_succeed=ROUND(:multiple * points_to_succeed)
+                WHERE game_id=:game_id""",
+                {
+                    "game_id": game_id,
+                    "multiple": multiple,
+                },
+            )
+        elif feature in ["decrease_cards_rewards", "increase_cards_rewards"]:
+            # change rewards on success for all availablecards
+            all_cards = select_all_from_db(
+                """
+                SELECT card_id, on_success 
+                FROM game_deck
+                WHERE game_id=:game_id
+                """,
+                {
+                    "game_id": game_id,
+                },
+            )
+            for c in all_cards:
+                c["on_success"] = json.loads(c["on_success"])
+                for effect in c["on_success"]:
+                    if effect["name"] == "change_player_points":
+                        effect["payload"]["points"] = round(
+                            effect["payload"]["points"] * multiple
+                        )
+                write_to_db(
+                    """
+                UPDATE game_deck 
+                SET on_success=:on_success
+                WHERE card_id=:card_id
+                AND game_id=:game_id
+                """,
+                    {
+                        "on_success": json.dumps(c["on_success"]),
+                        "card_id": c["card_id"],
+                        "game_id": game_id,
+                    },
+                )
+        elif feature in ["increase_clerks_pay", "decrease_clerks_pay"]:
+            # TODO
+            pass
+
+        elif feature == "increase_basic_income_for_all":
+            if card["tier"] == 1:
+                basic_for_all = round(STARTING_BASIC_INCOME * multiple)
+            else:
+                basic_for_all = round(basic_for_all * multiple)
+        elif feature == "decrease_basic_income_for_all":
+            if basic_for_all > 0:
+                basic_for_all = round(basic_for_all * multiple)
+
+        elif feature == "increase_basic_income_for_random_player":
+            if card["tier"] == 1:
+                basic_for_random = round(STARTING_BASIC_INCOME * multiple)
+            else:
+                basic_for_random = round(basic_for_random * multiple)
+        elif feature == "decrease_basic_income_for_random_player":
+            if basic_for_random > 0:
+                basic_for_random = round(basic_for_random * multiple)
+
+        game["incomes"]["basic_income_for_all"] = basic_for_all
+        game["incomes"]["basic_income_for_random_player"] = basic_for_random
+    return game
+
+
 def implement_project_result(game: dict):
     """Check whether team succeeded or failed in ended round"""
     card = game["cards_selected_by_leader"][0]
-
     overpayment = sum(game['round_deposits'].values()) - int(card["points_to_succeed"])
 
     is_success = overpayment >= 0
@@ -363,6 +459,9 @@ def implement_project_result(game: dict):
     game["round_delta"] = overpayment
     game["latest_round_result"] = is_success
     game["history"].append({"card": card, "succeeded": is_success})
+
+    if is_success:
+        game = activate_card_feature(card, game)
 
     effects = json.loads(card["on_success" if is_success else "on_failure"])
     for effect in effects:
@@ -379,10 +478,28 @@ def implement_project_result(game: dict):
     if is_success:
         write_to_db(
             "UPDATE game_deck SET available=:available WHERE card_id=:card_id AND game_id=:game_id",
-            {"card_id": card['card_id'], "game_id": game['game_id'], "available": False},
+            {
+                "card_id": card["card_id"],
+                "game_id": game["game_id"],
+                "available": False,
+            },
         )
 
     return game, is_success
+
+
+def pay_incomes(game: dict):
+    basic_income = game["incomes"]["basic_income_for_all"]
+    if basic_income != 0:
+        for player in game["players"]:
+            game = change_player_points(game, player, basic_income)
+
+    basic_income_for_random = game["incomes"]["basic_income_for_random_player"]
+    if basic_income_for_random != 0:
+        game = change_player_points(
+            game, random.choice(game["players"]), basic_income_for_random
+        )
+    return game
 
 
 def issue_salaries(game):
@@ -423,7 +540,10 @@ def handle_make_project_deposit(data):
 
         is_game_over = game["round"] >= game["rounds"]
         if is_game_over:
-            write_to_db("UPDATE rooms SET game=NULL, number_of_games=number_of_games+1 WHERE uid=:room_id", {"room_id": room_id})
+            write_to_db(
+                "UPDATE rooms SET game=NULL, number_of_games=number_of_games+1 WHERE uid=:room_id",
+                {"room_id": room_id},
+            )
 
             payload = build_payload(room_id)
             payload["rating"] = define_rating(game)
@@ -447,7 +567,7 @@ def handle_make_project_deposit(data):
             game["leader"] = players_order_in_new_round[0]
 
             game = apply_effects(game, game["effects_to_apply"])
-
+            game = pay_incomes(game)
             store_game(room_id, game)
             emit("round_started", build_payload(room_id), to=room_id)
 
