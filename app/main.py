@@ -224,7 +224,7 @@ def handle_game_start(data):
         "game_id": str(uuid.uuid4()),
         "round": 1,
         "players": tuple(player_names),
-        'vacancies': {},
+        "vacancies": {},
         "players_order_in_round": player_names,
         "players_to_move": player_names,
         "active_player": player_names[0],
@@ -232,7 +232,7 @@ def handle_game_start(data):
         "all_players_points": {
             pln: int(data["initial_player_points"]) for pln in player_names
         },
-        'round_deposits': {},
+        "round_deposits": {},
         "cards_selected_by_leader": [],
         "team": [],
         "effects_to_apply": [],
@@ -285,7 +285,9 @@ def handle_game_start(data):
 
 
 def change_player_points(game: dict, player_name, points: int):
-    game["all_players_points"][player_name] = max(game["all_players_points"][player_name] + points, 0)
+    game["all_players_points"][player_name] = max(
+        game["all_players_points"][player_name] + points, 0
+    )
     return game
 
 
@@ -436,7 +438,7 @@ def activate_card_feature(card: dict, game: dict):
 def implement_project_result(game: dict):
     """Check whether team succeeded or failed in ended round"""
     card = game["cards_selected_by_leader"][0]
-    overpayment = sum(game['round_deposits'].values()) - int(card["points_to_succeed"])
+    overpayment = sum(game["round_deposits"].values()) - int(card["points_to_succeed"])
 
     is_success = overpayment >= 0
 
@@ -454,13 +456,15 @@ def implement_project_result(game: dict):
             else:
                 game["effects_to_apply"].append(effect)
 
-    if is_success and card['vacancy'] != 'null':
-        vacancy = json.loads(card['vacancy'])
+    if is_success and card["vacancy"] != "null":
+        vacancy = json.loads(card["vacancy"])
         if vacancy:
-            deposits = game['round_deposits']
+            deposits = game["round_deposits"]
             max_dep = max(deposits.values())
             max_dep_players = [pl for pl in deposits if deposits[pl] == max_dep]
-            game['vacancies'][vacancy['name']] = max_dep_players[0] if len(max_dep_players) == 1 else game['leader']
+            game["vacancies"][vacancy["name"]] = (
+                max_dep_players[0] if len(max_dep_players) == 1 else game["leader"]
+            )
 
     if is_success:
         write_to_db(
@@ -473,7 +477,6 @@ def implement_project_result(game: dict):
         )
 
     return game, is_success
-
 
 
 def pay_incomes(game: dict):
@@ -489,12 +492,13 @@ def pay_incomes(game: dict):
         )
     return game
 
-def issue_salaries(game):
-    vacancies = [card['vacancy'] for card in build_deck(999) if card['vacancy']]
-    salaries = {vcn['name']: vcn['income'] for vcn in vacancies}
 
-    for vcn in game['vacancies']:
-        game = change_player_points(game, game['vacancies'][vcn], int(salaries[vcn]))
+def issue_salaries(game):
+    vacancies = [card["vacancy"] for card in build_deck(999) if card["vacancy"]]
+    salaries = {vcn["name"]: vcn["income"] for vcn in vacancies}
+
+    for vcn in game["vacancies"]:
+        game = change_player_points(game, game["vacancies"][vcn], int(salaries[vcn]))
 
     return game
 
@@ -507,7 +511,7 @@ def handle_make_project_deposit(data):
 
     game = get_game(room_id)
     game = change_player_points(game, data["player_name"], -points)
-    game['round_deposits'][data["player_name"]] = points
+    game["round_deposits"][data["player_name"]] = points
 
     game, has_player_to_move_next = move_to_next_player(game)
     store_game(room_id, game)
@@ -541,7 +545,7 @@ def handle_make_project_deposit(data):
             # start next round
             game["round"] += 1
             game["round_deposits"] = {}
-            game["cards_on_table"] = draw_cards(game['game_id'])
+            game["cards_on_table"] = draw_cards(game["game_id"])
             game["cards_selected_by_leader"] = []
             game["team"] = []
 
