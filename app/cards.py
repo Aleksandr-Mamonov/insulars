@@ -1,6 +1,7 @@
 import random
 
 CATEGORIES_OF_PLAYERS = ["all", "leader", "team", "others", "random_player"]
+"""
 EFFECTS = [
     {
         "name": "change_player_points",
@@ -45,6 +46,7 @@ EFFECTS = [
         },
     },
 ]
+"""
 
 
 def _card(name: str, family: str, tier: int, vacancy=None, feature=None):

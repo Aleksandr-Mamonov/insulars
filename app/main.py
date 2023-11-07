@@ -410,6 +410,11 @@ def implement_project_result(game: dict):
 
         rm_card_from_deck(game['game_id'], card['card_id'])
 
+    card_has_no_vacancy = not card['vacancy'] or card['vacancy'] == 'null'
+    family_vacancy_assigned = card['family'] in game['vacancies']
+    if not is_success and card_has_no_vacancy and family_vacancy_assigned:
+        game = assign_vacancy(game, card)
+
     return game, is_success
 
 

@@ -351,7 +351,7 @@
                             </div>
                         </div>
                         <div v-for="vcn in playerVacancies(pl.name)">
-                            <span class="bg-info badge text-dark me-1 mb-1">${ vcn.name }$ <points-badge :signed="true" style="font-size: 0.7rem" :points="applyFeature('clerks_salary', vcn.income)"></points-badge></span>
+                            <vacancy-badge :name="vcn.name" :salary="applyFeature('clerks_salary', vcn.income)"/>
                         </div>
                     </div>
 
@@ -376,6 +376,7 @@
                                     <div class="col">
                                         <table-card @click="selectedCard = card.card_id"
                                             :card="card"
+                                            :vacancies="currentVacancies"
                                             class="border-4"
                                             :class="{'shadow-lg border-info': selectedCard && (selectedCard === card.card_id), 'border-white': !(selectedCard && (selectedCard === card.card_id))}"
                                             v-for="card in game.cards_on_table"
@@ -402,6 +403,7 @@
                                     <div class="col">
                                         <table-card :card="card"
                                                     class="border-4 border-white"
+                                                    :vacancies="currentVacancies"
                                                     v-for="card in game.cards_on_table"
                                                     :key="card.card_id"
                                                     :active-features="activeCardFeatures"
@@ -419,6 +421,7 @@
                                     <table-card :card="card"
                                                 class="border-4 border-white"
                                                 v-for="card in game.cards_selected_by_leader"
+                                                :vacancies="currentVacancies"
                                                 :key="card.card_id"
                                                 :active-features="activeCardFeatures"
                                                 :effects-visibility="game.card_effect_visibility"
@@ -525,14 +528,18 @@
 
                 <div v-if="condition == 'on_success'">
                     <div v-if="vacancy" class="mb-1">
-                        <span class="bg-info badge text-dark"><b>${ vacancy.name }$</b> <points-badge style="font-size: 0.7rem;" :signed="true" :points="applyFeature('clerks_salary', vacancy.income)" /></span>
+                        <vacancy-badge :name="vacancy.name"
+                                       :salary="applyFeature('clerks_salary', vacancy.income)"/>
                     </div>
 
                     <div v-if="feature" class="mb-1">
                         <feature-badge :feature="feature" />
                     </div>
                 </div>
-
+                <div v-if="condition == 'on_failure' && !vacancy && vacancies[card.family]">
+                    Переназначение <vacancy-badge :name="jsonparse(vacancies[card.family]).name"
+                                                  :salary="applyFeature('clerks_salary', jsonparse(vacancies[card.family]).income)"/>
+                </div>
             </div>
         </div>
     </template>
@@ -562,7 +569,7 @@
                     showFinalResults: ref(false),
                     gameConfig: ref({
                         rounds: 15,
-                        initialPlayerPoints: 50,
+                        initialPlayerPoints: 30,
                         cardEffectVisibility: {
                             'onSuccess': {
                                 'leader': true,
@@ -642,6 +649,23 @@
                     })
 
                     return families
+                },
+                currentVacancies() {
+                    let vacancies = {}
+
+                    this.succeedCards
+                        .filter(card => card.vacancy)
+                        .forEach(card => {
+                            let fam = card.family
+                            if (!(fam in vacancies)) {
+                                vacancies[fam] = card.vacancy
+                            }
+                            if (vacancies[fam].tier < card.tier) {
+                                vacancies[fam] = card.vacancy
+                            }
+                        })
+
+                    return vacancies
                 },
                 activeCardFeatures() {
                     return {
@@ -783,7 +807,7 @@
             },
         });
         app.component('TableCard', {
-            props: ['card', 'effectsVisibility', 'isLeader', 'activeFeatures'],
+            props: ['card', 'effectsVisibility', 'isLeader', 'activeFeatures', 'vacancies'],
             data() {
                 return {
                     tiers: {
@@ -804,6 +828,9 @@
                 }
             },
             methods: {
+                jsonparse(val) {
+                    return JSON.parse(val)
+                },
                 applyFeature(name, value) {
                     return value + (this.activeFeatures[name]?.magnitude || 0)
                 },
@@ -832,6 +859,10 @@
         app.component('PointsBadge', {
             props: ['points', 'duration', 'prolonged', 'signed'],
             template: '<span class="badge rounded-pill bg-warning text-dark"><strong><span v-if="signed && points > 0">+</span>${ points }$</strong><span v-if="prolonged"><span v-if="duration">&nbsp;на&nbsp;${ duration }$&nbsp;<i class="bi-hourglass-split"></i></span></span></span>',
+        });
+        app.component('VacancyBadge', {
+            props: ['name', 'salary'],
+            template: '<span class="bg-info badge text-dark"><b>${ name }$</b> <points-badge style="font-size: 0.7rem;" :signed="true" :points="salary" /></span>'
         });
         app.component('FeatureBadge', {
             props: ['feature'],
