@@ -203,10 +203,7 @@ def handle_player_enter(data):
 def handle_game_start(data):
     room_id = data["room_id"]
 
-    players = select_all_from_db(
-        "SELECT player_name FROM room_players WHERE room_id=:room_id",
-        {"room_id": room_id},
-    )
+    players = select_all_from_db("SELECT player_name FROM room_players WHERE room_id=:room_id", {"room_id": room_id})
     player_names = [pl["player_name"] for pl in players]
 
     game = {
@@ -218,9 +215,7 @@ def handle_game_start(data):
         "players_to_move": player_names,
         "active_player": player_names[0],
         "leader": player_names[0],
-        "all_players_points": {
-            pln: int(data["initial_player_points"]) for pln in player_names
-        },
+        "all_players_points": {pln: int(data["initial_player_points"]) for pln in player_names},
         'round_deposits': {},
         "cards_selected_by_leader": [],
         "team": [],

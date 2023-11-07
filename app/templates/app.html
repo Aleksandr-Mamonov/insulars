@@ -262,40 +262,6 @@
                                 <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onFailure.players" />
                             </label>
                         </div>
-
-                        <h4>Card deck</h4>
-                        <div v-for="(card, idx) in cardDeck" style="padding: 10px; margin: 10px; background: lightgray">
-                            <label>Name
-                                <input v-model="card.name" />
-                            </label>
-                            <label>Points to succeed
-                                <input v-model="card.points_to_succeed" />
-                            </label>
-                            <label>Min team
-                                <input v-model="card.min_team" />
-                            </label>
-                            <label>Max team
-                                <input v-model="card.max_team" />
-                            </label>
-                            <div>
-                                <label>On success
-                                    <textarea rows=6 cols=70 v-model="card.on_success"></textarea>
-                                </label>
-                            </div>
-                            <div>
-                                <label>On failure
-                                    <textarea rows=6 cols=70 v-model="card.on_failure"></textarea>
-                                </label>
-                            </div>
-
-                            <button @click="rmCardFromGameDeck(idx)" v-if="cardDeck.length > 1">Rm card</button>
-                        </div>
-
-                        <button @click="addNewCardToGameDeck()">Add card</button>
-
-                        <h5>Effect samples</h5>
-                        <pre>{"type": "change_player_points", "payload": {"rounds_to_apply": 1, "points": 10,"players": []}}</pre>
-                        <pre>{"type": "leadership_ban_next_time", "payload": {"player": null}}</pre>
                     </details>
                 </div>
             </div>
@@ -581,7 +547,6 @@
                             }
                         }
                     }),
-                    cardDeck: ref([])
                 }
             },
             computed: {
@@ -701,23 +666,9 @@
                 isLeader() {
                     return this.playerName == this.game.leader;
                 },
-                addNewCardToGameDeck() {
-                    this.cardDeck.push({
-                        name: 'New card',
-                        points_to_succeed: 20,
-                        min_team: 1,
-                        max_team: 2,
-                        on_success: '{"name": "change_player_points", "type": "positive", "payload": {"rounds_to_apply": 7, "categories_of_players": ["leader", "team"], "points": 10, "players": []}}',
-                        on_failure: ''
-                    })
-                },
-                rmCardFromGameDeck(idx) {
-                    this.cardDeck.splice(idx, 1);
-                },
                 startGame() {
                     socket.emit('start_game', {
                         "room_id": this.roomId,
-                        "cards": this.cardDeck,
                         "rounds": this.gameConfig.rounds,
                         "initial_player_points": this.gameConfig.initialPlayerPoints,
                         "card_effect_visibility": this.gameConfig.cardEffectVisibility
