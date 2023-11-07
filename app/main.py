@@ -354,6 +354,22 @@ def populate_players_to_whom_apply_effect(game: dict, effect: dict):
     return effect
 
 
+def assign_vacancy(game, card):
+    if not card['vacancy'] or card['vacancy'] == 'null':
+        return game
+
+    deposits = game['round_deposits']
+
+    max_dep = max(deposits.values())
+    max_dep_players = [pl for pl in deposits if deposits[pl] == max_dep]
+
+    assignee = max_dep_players[0] if len(max_dep_players) == 1 else game['leader']
+
+    game['vacancies'][card['family']] = {'assignee': assignee, 'vacancy': card['vacancy']}
+
+    return game
+
+
 def activate_card_feature(card: dict, game: dict):
     game_id = game["game_id"]
     basic_for_all = game["incomes"]["basic_income_for_all"]
@@ -443,8 +459,10 @@ def implement_project_result(game: dict):
     game["round_delta"] = overpayment
     game["latest_round_result"] = is_success
     game["history"].append({"card": card, "succeeded": is_success})
+
     if is_success:
         game = activate_card_feature(card, game)
+
     effects = json.loads(card["on_success" if is_success else "on_failure"])
     for effect in effects:
         if effect:
@@ -454,13 +472,8 @@ def implement_project_result(game: dict):
             else:
                 game["effects_to_apply"].append(effect)
 
-    if is_success and card['vacancy'] != 'null':
-        vacancy = json.loads(card['vacancy'])
-        if vacancy:
-            deposits = game['round_deposits']
-            max_dep = max(deposits.values())
-            max_dep_players = [pl for pl in deposits if deposits[pl] == max_dep]
-            game['vacancies'][vacancy['name']] = max_dep_players[0] if len(max_dep_players) == 1 else game['leader']
+    if is_success:
+        game = assign_vacancy(game, card)
 
     if is_success:
         write_to_db(
@@ -473,7 +486,6 @@ def implement_project_result(game: dict):
         )
 
     return game, is_success
-
 
 
 def pay_incomes(game: dict):
@@ -489,12 +501,12 @@ def pay_incomes(game: dict):
         )
     return game
 
-def issue_salaries(game):
-    vacancies = [card['vacancy'] for card in build_deck(999) if card['vacancy']]
-    salaries = {vcn['name']: vcn['income'] for vcn in vacancies}
 
-    for vcn in game['vacancies']:
-        game = change_player_points(game, game['vacancies'][vcn], int(salaries[vcn]))
+def issue_salaries(game):
+    for family in game['vacancies']:
+        game = change_player_points(game,
+                                    game['vacancies'][family]['assignee'],
+                                    json.loads(game['vacancies'][family]['vacancy'])['income'])
 
     return game
 
