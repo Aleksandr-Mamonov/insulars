@@ -143,66 +143,65 @@ def process_missions(game: dict, is_round_successful: bool):
 
         player = mission["player"]
 
-        match mission["name"]:
-            case "fail_as_team_n_rounds":
-                if not is_round_successful and player in game["team"]:
-                    update_counter_and_check_mission_completion(game, mission)
+        if mission["name"] == "fail_as_team_n_rounds":
+            if not is_round_successful and player in game["team"]:
+                update_counter_and_check_mission_completion(game, mission)
 
-            case "succeed_as_team_n_rounds":
-                if is_round_successful and player in game["team"]:
-                    update_counter_and_check_mission_completion(game, mission)
+        if mission["name"] == "succeed_as_team_n_rounds":
+            if is_round_successful and player in game["team"]:
+                update_counter_and_check_mission_completion(game, mission)
 
-            case "fail_as_leader_n_rounds":
-                if not is_round_successful and player == game["leader"]:
-                    update_counter_and_check_mission_completion(game, mission)
+        if mission["name"] == "fail_as_leader_n_rounds":
+            if not is_round_successful and player == game["leader"]:
+                update_counter_and_check_mission_completion(game, mission)
 
-            case "succeed_as_leader_n_rounds":
-                if is_round_successful and player == game["leader"]:
-                    update_counter_and_check_mission_completion(game, mission)
+        if mission["name"] == "succeed_as_leader_n_rounds":
+            if is_round_successful and player == game["leader"]:
+                update_counter_and_check_mission_completion(game, mission)
 
-            case "deposit_n_points_at_once":
-                if player in game["team"]:
-                    if game["round_deposits"][player] >= mission["deposit"]:
-                        complete_mission(game, mission)
-
-            case "leader_without_overpayment":
-                if player == game["leader"] and game["round_delta"] > 0:
-                    mission["is_failed"] = True
-                    continue
-                if game["round"] == game["rounds"]:
+        if mission["name"] == "deposit_n_points_at_once":
+            if player in game["team"]:
+                if game["round_deposits"][player] >= mission["deposit"]:
                     complete_mission(game, mission)
 
-            case "suceeded_n_tier":
-                result = select_one_from_db(
-                    """
-                    SELECT * FROM game_deck
-                    WHERE game_id=:game_id
-                    AND tier=:tier
-                    AND available=false
-                    """,
-                    {"game_id": game["game_id"], "tier": mission["tier"]},
-                )
-                if result:
-                    complete_mission(game, mission)
+        if mission["name"] == "leader_without_overpayment":
+            if player == game["leader"] and game["round_delta"] > 0:
+                mission["is_failed"] = True
+                continue
+            if game["round"] == game["rounds"]:
+                complete_mission(game, mission)
 
-            case "lower_than_n_tier":
-                result = select_one_from_db(
-                    """
-                    SELECT * FROM game_deck
-                    WHERE game_id=:game_id
-                    AND tier>=:tier
-                    AND available=false
-                    """,
-                    {"game_id": game["game_id"], "tier": mission["tier"]},
-                )
-                if result:
-                    mission["is_failed"] = True
-                    continue
-                if game["round"] == game["rounds"]:
-                    complete_mission(game, mission)
+        if mission["name"] == "suceeded_n_tier":
+            result = select_one_from_db(
+                """
+                SELECT * FROM game_deck
+                WHERE game_id=:game_id
+                AND tier=:tier
+                AND available=false
+                """,
+                {"game_id": game["game_id"], "tier": mission["tier"]},
+            )
+            if result:
+                complete_mission(game, mission)
 
-            case "earn_n_points":
-                if game["all_players_points"][player] >= mission["earn"]:
-                    complete_mission(game, mission)
+        if mission["name"] == "lower_than_n_tier":
+            result = select_one_from_db(
+                """
+                SELECT * FROM game_deck
+                WHERE game_id=:game_id
+                AND tier>=:tier
+                AND available=false
+                """,
+                {"game_id": game["game_id"], "tier": mission["tier"]},
+            )
+            if result:
+                mission["is_failed"] = True
+                continue
+            if game["round"] == game["rounds"]:
+                complete_mission(game, mission)
+
+        if mission["name"] == "earn_n_points":
+            if game["all_players_points"][player] >= mission["earn"]:
+                complete_mission(game, mission)
 
     return game
