@@ -43,8 +43,7 @@ def _join_player_to_room(player_name, room_id):
 
 
 def draw_cards(game_id):
-    return select_all_from_db(
-        f"""
+    sql = f"""
         SELECT gd2.* FROM game_deck gd2
         INNER JOIN (
             SELECT gd1.family, MIN(gd1.tier) as tier FROM game_deck gd1
@@ -53,10 +52,26 @@ def draw_cards(game_id):
         ) as min_tier ON min_tier.tier = gd2.tier AND min_tier.family=gd2.family
         WHERE gd2.game_id = :game_id 
         ORDER BY RANDOM()
-        LIMIT {CARDS_ON_TABLE_IN_ROUND}
-    """,
-        {"game_id": game_id},
-    )
+        LIMIT {CARDS_ON_TABLE_IN_ROUND}"""
+
+    cards = select_all_from_db(sql, {"game_id": game_id})
+
+    return [
+        {
+            "game_id": card["game_id"],
+            "card_id": card["name"],
+            "family": card["family"],
+            "tier": card["tier"],
+            "name": card["name"],
+            "points_to_succeed": card["points_to_succeed"],
+            "min_team": card["min_team"],
+            "max_team": card["max_team"],
+            "on_success": json.loads(card["on_success"]),
+            "on_failure": json.loads(card["on_failure"]),
+            "feature": json.loads(card.get("feature")),
+            "vacancy": json.loads(card.get("vacancy")),
+        } for card in cards
+    ]
 
 
 def rotate_players_order_in_round(game: dict):
@@ -361,7 +376,7 @@ def rm_card_from_deck(game_id, card_id):
 
 def get_feature(feature: str, game: dict):
     for card_family in game['features']:
-        feat = json.loads(game['features'][card_family])
+        feat = game['features'][card_family]
 
         if feat['type'] == feature:
             return feat
@@ -390,7 +405,7 @@ def implement_project_result(game: dict):
     game["latest_round_result"] = is_success
     game["history"].append({"card": card, "succeeded": is_success})
 
-    effects = json.loads(card["on_success" if is_success else "on_failure"])
+    effects = card["on_success" if is_success else "on_failure"]
     for effect in effects:
         if effect:
             effect = populate_players_to_whom_apply_effect(game, effect)
@@ -416,7 +431,7 @@ def implement_project_result(game: dict):
 def issue_salaries(game):
     for family in game['vacancies']:
         assignment = game['vacancies'][family]
-        vacancy = json.loads(assignment['vacancy'])
+        vacancy = assignment['vacancy']
         salary = apply_feature('clerks_salary', game, int(vacancy['income']))
         game = change_player_points(game, assignment['assignee'], salary)
 

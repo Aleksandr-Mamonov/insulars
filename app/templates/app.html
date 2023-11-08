@@ -426,7 +426,7 @@
                 <div class="row py-3" v-if="succeedCards.length > 0">
                     <h5>Построены</h5>
                     <div v-for="(card, family) in succeedCardsByFamilies" class="mb-2">
-                        <div><span class="me-2">${ family }$ ${ card.tier }$ - ${ card.name }$</span><feature-badge :feature="jsonparse(card.feature)" /></div>
+                        <div><span class="me-2">${ family }$ ${ card.tier }$ - ${ card.name }$</span><feature-badge :feature="card.feature" /></div>
                     </div>
                 </div>
 
@@ -462,7 +462,7 @@
 
             <div v-for="condition in ['on_success', 'on_failure']"
                  class="card-effect py-3 bg-gradient"
-                 :set="effects = parseCardEffect(card[condition])"
+                 :set="effects = card[condition]"
                  :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
 
                 <div v-if="!isConditionEffectsVisible(condition)">
@@ -503,8 +503,8 @@
                     </div>
                 </div>
                 <div v-if="condition == 'on_failure' && !vacancy && vacancies[card.family]">
-                    Переназначение <vacancy-badge :name="jsonparse(vacancies[card.family]).name"
-                                                  :salary="applyFeature('clerks_salary', jsonparse(vacancies[card.family]).income)"/>
+                    Переназначение <vacancy-badge :name="vacancies[card.family].name"
+                                                  :salary="applyFeature('clerks_salary', vacancies[card.family].income)"/>
                 </div>
             </div>
         </div>
@@ -648,11 +648,8 @@
                         "player_name": this.playerName
                     });
                 },
-                jsonparse(val) {
-                    return JSON.parse(val)
-                },
                 getActiveFeature(name) {
-                    return JSON.parse(Object.values(this.game.features || {}).find(ft => JSON.parse(ft).type === name) || null)
+                    return Object.values(this.game.features || {}).find(ft => ft.type === name) || null
                 },
                 applyFeature(name, value) {
                     return value + (this.getActiveFeature(name)?.magnitude || 0)
@@ -702,7 +699,7 @@
                 playerVacancies(plName) {
                     return Object.values(this.game.vacancies)
                         .filter(v => v.assignee === plName)
-                        .map(v => JSON.parse(v.vacancy));
+                        .map(v => v.vacancy);
                 }
             },
             mounted() {
@@ -772,21 +769,15 @@
             },
             computed: {
                 vacancy() {
-                    return (this.card.vacancy && JSON.parse(this.card.vacancy)) || null
+                    return this.card.vacancy || null
                 },
                 feature() {
-                    return (this.card.feature && JSON.parse(this.card.feature)) || null
+                    return this.card.feature || null
                 }
             },
             methods: {
-                jsonparse(val) {
-                    return JSON.parse(val)
-                },
                 applyFeature(name, value) {
                     return value + (this.activeFeatures[name]?.magnitude || 0)
-                },
-                parseCardEffect(effect) {
-                    return effect ? JSON.parse(effect) : {}
                 },
                 isConditionEffectsVisible(condition) {
                     let key = condition == 'on_success' ? 'onSuccess' : 'onFailure';
