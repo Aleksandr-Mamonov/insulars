@@ -1,4 +1,3 @@
-from .config import MIN_PLAYERS
 import random
 
 CATEGORIES_OF_PLAYERS = ["all", "leader", "team", "others", "random_player"]
@@ -48,26 +47,7 @@ EFFECTS = [
 ]
 
 
-card_features = {
-    "Transport": "decrease_cards_costs",
-    "Shopping": "increase_cards_costs",
-    "Education": "increase_cards_rewards",
-    "Religion": "decrease_cards_rewards",
-    "Government": "increase_clerks_pay",
-    "Culture": "decrease_clerks_pay",
-    "Food": "increase_basic_income_for_all",
-    "Medicine": "decrease_basic_income_for_all",
-    "Entertainment": "increase_basic_income_for_random_player",
-    "Finance": "decrease_basic_income_for_random_player",
-}
-features_tiers_multiples = {
-    "decrease": {1: 0.9, 3: 0.7, 5: 0.5},
-    "increase": {1: 1.1, 3: 1.3, 5: 1.5},
-}
-
-
-
-def _card(name: str, family: str, tier: int, vacancy=None):
+def _card(name: str, family: str, tier: int, vacancy=None, feature=None):
     card = {
         "family": family,
         "tier": tier,
@@ -76,6 +56,7 @@ def _card(name: str, family: str, tier: int, vacancy=None):
         "min_team": max([tier - 1, 2]),
         "max_team": max([tier, 2]),
         "vacancy": vacancy,
+        "feature": feature,
         "on_success": [
             {
                 "name": "change_player_points",
@@ -109,85 +90,176 @@ def _card(name: str, family: str, tier: int, vacancy=None):
             },
         ],
     }
-    feature = card_features[family]
-    if tier in [1, 3, 5] and feature.startswith("increase"):
-        card["feature"] = {
-            "name": feature,
-            "multiple": features_tiers_multiples["increase"][tier],
-        }
-    elif tier in [1, 3, 5] and feature.startswith("decrease"):
-        card["feature"] = {
-            "name": feature,
-            "multiple": features_tiers_multiples["decrease"][tier],
-        }
+
     return card
+
 
 def _vacancy(name: str, income: int):
     return {'name': name, 'income': income}
 
 
+def _feat(feat_type, magnitude):
+    return {'type': feat_type, 'magnitude': magnitude}
+
+
 def build_deck(families_num: int):
     families_num = min([families_num, 10])
     cards = [
-        _card("Rickshaw", 'Transport', 1, vacancy=_vacancy('Извозчик', 10)),
+        # Transport
+        _card("Rickshaw", 'Transport', 1,
+              vacancy=_vacancy('Извозчик', 10),
+              feature=_feat('cards_cost', -3)
+              ),
         _card("Bike rental network", 'Transport', 2),
-        _card("Taxi station", 'Transport', 3, vacancy=_vacancy('Логист', 40)),
+        _card("Taxi station", 'Transport', 3,
+              vacancy=_vacancy('Логист', 40),
+              feature=_feat('cards_cost', -5)
+              ),
         _card("Railway station", 'Transport', 4),
-        _card("Airport", 'Transport', 5, vacancy=_vacancy('Министр транспорта', 75)),
+        _card("Airport", 'Transport', 5,
+              vacancy=_vacancy('Министр транспорта', 75),
+              feature=_feat('cards_cost', -10)
+              ),
 
-        _card("Tent", 'Shopping', 1, vacancy=_vacancy('Лавочник', 15)),
+        #  Shopping
+        _card("Tent", 'Shopping', 1,
+              vacancy=_vacancy('Лавочник', 15),
+              feature=_feat('cards_cost', +3)
+              ),
         _card("Trailer", 'Shopping', 2),
-        _card("Shop", 'Shopping', 3, vacancy=_vacancy('Торговец', 30)),
+        _card("Shop", 'Shopping', 3,
+              vacancy=_vacancy('Торговец', 30),
+              feature=_feat('cards_cost', +5)
+              ),
         _card("Market", 'Shopping', 4),
-        _card("Shopping center", 'Shopping', 5, vacancy=_vacancy('Капиталист', 75)),
+        _card("Shopping center", 'Shopping', 5,
+              vacancy=_vacancy('Капиталист', 75),
+              feature=_feat('cards_cost', +10)
+              ),
 
-        _card("Kindergarten", 'Education', 1, vacancy=_vacancy('Воспитатель', 5)),
+        #  Education
+        _card("Kindergarten", 'Education', 1,
+              vacancy=_vacancy('Воспитатель', 5),
+              feature=_feat('cards_reward', +3),
+              ),
         _card("School", 'Education', 2),
-        _card("College", 'Education', 3, vacancy=_vacancy('Профессор', 30)),
+        _card("College", 'Education', 3,
+              vacancy=_vacancy('Профессор', 30),
+              feature=_feat('cards_reward', +5),
+              ),
         _card("University", 'Education', 4),
-        _card("Academy", 'Education', 5, vacancy=_vacancy('Академик', 70)),
+        _card("Academy", 'Education', 5,
+              vacancy=_vacancy('Академик', 70),
+              feature=_feat('cards_reward', +10),
+              ),
 
-        _card("Altar", 'Religion', 1, vacancy=_vacancy('Служка', 5)),
+        # Religion
+        _card("Altar", 'Religion', 1,
+              vacancy=_vacancy('Служка', 5),
+              feature=_feat('cards_reward', -3),
+              ),
         _card("Chapel", 'Religion', 2),
-        _card("Church", 'Religion', 3, vacancy=_vacancy('Священник', 20)),
+        _card("Church", 'Religion', 3,
+              vacancy=_vacancy('Священник', 20),
+              feature=_feat('cards_reward', -5)
+              ),
         _card("Temple", 'Religion', 4),
-        _card("Cathedral", 'Religion', 5, vacancy=_vacancy('Кадринал', 80)),
+        _card("Cathedral", 'Religion', 5,
+              vacancy=_vacancy('Кадринал', 80),
+              feature=_feat('cards_reward', -10)
+              ),
 
-        _card("Rented office", 'Government', 1, vacancy=_vacancy('Зам зама', 3)),
+        # Government
+        _card("Rented office", 'Government', 1,
+              vacancy=_vacancy('Зам зама', 3),
+              feature=_feat('clerks_salary', +3),
+              ),
         _card("Administration", 'Government', 2),
-        _card("City hall", 'Government', 3, vacancy=_vacancy('Депутат', 25)),
+        _card("City hall", 'Government', 3,
+              vacancy=_vacancy('Депутат', 25),
+              feature=_feat('clerks_salary', +5),
+              ),
         _card("Parliament", 'Government', 4),
-        _card("Government house", 'Government', 5, vacancy=_vacancy('Сенатор', 85)),
+        _card("Government house", 'Government', 5,
+              vacancy=_vacancy('Сенатор', 85),
+              feature=_feat('clerks_salary', +10)
+              ),
 
-        _card("Museum", 'Culture', 1, vacancy=_vacancy('Смотритель', 5)),
+        # Culture
+        _card("Museum", 'Culture', 1,
+              vacancy=_vacancy('Смотритель', 5),
+              feature=_feat('clerks_salary', -3)),
         _card("Theatre", 'Culture', 2),
-        _card("Philarmony", 'Culture', 3, vacancy=_vacancy('Маэстро', 25)),
+        _card("Philarmony", 'Culture', 3,
+              vacancy=_vacancy('Маэстро', 25),
+              feature=_feat('clerks_salary', -5),
+              ),
         _card("Opera", 'Culture', 4),
-        _card("Cultural center", 'Culture', 5, vacancy=_vacancy('Поп-идол', 90)),
+        _card("Cultural center", 'Culture', 5,
+              vacancy=_vacancy('Поп-идол', 90),
+              feature=_feat('clerks_salary', -10),
+              ),
 
-        _card("Hot dog trailer", 'Food', 1, vacancy=_vacancy('Официант', 10)),
+        # Food
+        _card("Hot dog trailer", 'Food', 1,
+              vacancy=_vacancy('Официант', 10),
+              feature=_feat('basic_income', +5),
+              ),
         _card("Bakery", 'Food', 2),
-        _card("Canteen", 'Food', 3, vacancy=_vacancy('Шеф-повар', 25)),
+        _card("Canteen", 'Food', 3,
+              vacancy=_vacancy('Шеф-повар', 25),
+              feature=_feat('basic_income', +10),
+              ),
         _card("Restaurant", 'Food', 4),
-        _card("Hotel", 'Food', 5, vacancy=_vacancy('Метродотель', 70)),
+        _card("Hotel", 'Food', 5,
+              vacancy=_vacancy('Метродотель', 70),
+              feature=_feat('basic_income', +15),
+              ),
 
-        _card("Emergency room", 'Medicine', 1, vacancy=_vacancy('Медбрат', 10)),
+        _card("Emergency room", 'Medicine', 1,
+              vacancy=_vacancy('Медбрат', 10),
+              feature=_feat('basic_income', +3),
+              ),
         _card("Local clinic", 'Medicine', 2),
-        _card("City polyclinic", 'Medicine', 3, vacancy=_vacancy('Фельдшер', 25)),
+        _card("City polyclinic", 'Medicine', 3,
+              vacancy=_vacancy('Фельдшер', 25),
+              feature=_feat('basic_income', +5),
+              ),
         _card("Hospital", 'Medicine', 4),
-        _card("Medical center", 'Medicine', 5, vacancy=_vacancy('Главврач', 70)),
+        _card("Medical center", 'Medicine', 5,
+              vacancy=_vacancy('Главврач', 70),
+              feature=_feat('basic_income', +10),
+              ),
 
-        _card("Playground", 'Entertainment', 1, vacancy=_vacancy('Аниматор', 10)),
+        _card("Playground", 'Entertainment', 1,
+              vacancy=_vacancy('Аниматор', 10),
+              feature=_feat('random_gift', +10),
+              ),
         _card("Amusement park", 'Entertainment', 2),
-        _card("Cinema", 'Entertainment', 3,  vacancy=_vacancy('Администратор', 30)),
+        _card("Cinema", 'Entertainment', 3,
+              vacancy=_vacancy('Администратор', 30),
+              feature=_feat('random_gift', +15),
+              ),
         _card("City park", 'Entertainment', 4),
-        _card("Recreational complex", 'Entertainment', 5, vacancy=_vacancy('Гуру', 65)),
+        _card("Recreational complex", 'Entertainment', 5,
+              vacancy=_vacancy('Гуру', 65),
+              feature=_feat('random_gift', +25),
+              ),
 
-        _card("Pawnshop", 'Finance', 1, vacancy=_vacancy('Ростовщик', 15)),
+        _card("Pawnshop", 'Finance', 1,
+              vacancy=_vacancy('Ростовщик', 15),
+              feature=_feat('random_gift', -10),
+              ),
         _card("Micro-credit", 'Finance', 2),
-        _card("Bank", 'Finance', 3, vacancy=_vacancy('Банкир', 40)),
+        _card("Bank", 'Finance', 3,
+              vacancy=_vacancy('Банкир', 40),
+              feature=_feat('random_gift', -15),
+              ),
         _card("Exchange", 'Finance', 4),
-        _card("Ministry of finance", 'Finance', 5, vacancy=_vacancy('Финансист', 80)),
+        _card("Ministry of finance", 'Finance', 5,
+              vacancy=_vacancy('Финансист', 80),
+              feature=_feat('random_gift', -25),
+              ),
     ]
 
     families = list(set([card["family"] for card in cards]))

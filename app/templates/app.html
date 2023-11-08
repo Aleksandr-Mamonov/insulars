@@ -350,8 +350,8 @@
                                 </p>
                             </div>
                         </div>
-                        <div v-for="vacancy in playerVacancies(pl.name)">
-                            <span class="bg-info badge text-dark me-1 mb-1">${ vacancy }$ <points-badge :signed="true" style="font-size: 0.7rem" :points="vacancySalaries[vacancy]"></points-badge></span>
+                        <div v-for="vcn in playerVacancies(pl.name)">
+                            <span class="bg-info badge text-dark me-1 mb-1">${ vcn.name }$ <points-badge :signed="true" style="font-size: 0.7rem" :points="applyFeature('clerks_salary', vcn.income)"></points-badge></span>
                         </div>
                     </div>
 
@@ -380,6 +380,7 @@
                                             :class="{'shadow-lg border-info': selectedCard && (selectedCard === card.card_id), 'border-white': !(selectedCard && (selectedCard === card.card_id))}"
                                             v-for="card in game.cards_on_table"
                                             :key="card.card_id"
+                                            :active-features="activeCardFeatures"
                                             :effects-visibility="game.card_effect_visibility"
                                             :is-leader="isLeader()" />
 
@@ -403,6 +404,7 @@
                                                     class="border-4 border-white"
                                                     v-for="card in game.cards_on_table"
                                                     :key="card.card_id"
+                                                    :active-features="activeCardFeatures"
                                                     :effects-visibility="game.card_effect_visibility"
                                                     :is-leader="isLeader()"/>
                                     </div>
@@ -418,6 +420,7 @@
                                                 class="border-4 border-white"
                                                 v-for="card in game.cards_selected_by_leader"
                                                 :key="card.card_id"
+                                                :active-features="activeCardFeatures"
                                                 :effects-visibility="game.card_effect_visibility"
                                                 :is-leader="isLeader()"/>
                                 </div>
@@ -453,8 +456,8 @@
 
                 <div class="row py-3" v-if="succeedCards.length > 0">
                     <h5>Построены</h5>
-                    <div v-for="(card, family) in succeedCardsByFamilies" class="col-2">
-                        <div>${ family }$ ${ card.tier }$ - ${ card.name }$ </div>
+                    <div v-for="(card, family) in succeedCardsByFamilies" class="mb-2">
+                        <div><span class="me-2">${ family }$ ${ card.tier }$ - ${ card.name }$</span><feature-badge :feature="jsonparse(card.feature)" /></div>
                     </div>
                 </div>
 
@@ -469,7 +472,7 @@
                  class="py-4">
                 <div class="row mb-2">
                     <div class="col text-start mx-2">
-                        <points-badge style="font-size: 1.4rem" :points="card.points_to_succeed"/>
+                        <points-badge style="font-size: 1.4rem" :points="applyFeature('cards_cost', card.points_to_succeed)"/>
                     </div>
 
                     <div class="col text-end mx-2 font-bigger" >
@@ -493,8 +496,6 @@
                  :set="effects = parseCardEffect(card[condition])"
                  :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
 
-                <div><small><small>${ condition == 'on_success' ? 'При успехе' : 'При провале' }$</small></small></div>
-
                 <div v-if="!isConditionEffectsVisible(condition)">
                     Эффект скрыт
                 </div>
@@ -504,7 +505,7 @@
                         <div v-if="effect.name">
                             <div v-if="effect.name == 'change_player_points'">
                                 <div>
-                                    ${ buildCategoriesDescription(effect.payload.categories_of_players) }$ получает <points-badge :prolonged="effect.payload.rounds_to_apply > 1" :signed="true" :points="effect.payload.points" :duration="effect.payload.rounds_to_apply"/>
+                                    ${ buildCategoriesDescription(effect.payload.categories_of_players) }$ получает <points-badge :prolonged="effect.payload.rounds_to_apply > 1" :signed="true" :points="applyFeature('cards_reward', effect.payload.points)" :duration="effect.payload.rounds_to_apply"/>
                                 </div>
                             </div>
                             <div v-if="effect.name == 'give_overpayment'">
@@ -521,9 +522,17 @@
                     </div>
                 </div>
 
-                <span v-if="condition == 'on_success' && vacancy">
-                    Доступна вакансия: <span class="bg-info badge text-dark"><b>${ vacancy.name }$</b> <points-badge style="font-size: 0.7rem;" :signed="true" :points="vacancy.income" /></span>
-                </span>
+
+                <div v-if="condition == 'on_success'">
+                    <div v-if="vacancy" class="mb-1">
+                        <span class="bg-info badge text-dark"><b>${ vacancy.name }$</b> <points-badge style="font-size: 0.7rem;" :signed="true" :points="applyFeature('clerks_salary', vacancy.income)" /></span>
+                    </div>
+
+                    <div v-if="feature" class="mb-1">
+                        <feature-badge :feature="feature" />
+                    </div>
+                </div>
+
             </div>
         </div>
     </template>
@@ -552,8 +561,8 @@
                     finalRating: ref(null),
                     showFinalResults: ref(false),
                     gameConfig: ref({
-                        rounds: 10,
-                        initialPlayerPoints: 10,
+                        rounds: 15,
+                        initialPlayerPoints: 50,
                         cardEffectVisibility: {
                             'onSuccess': {
                                 'leader': true,
@@ -620,15 +629,6 @@
 
                     return selectedPlayers;
                 },
-                vacancySalaries() {
-                    return this.succeedCards
-                        .filter(c => c.vacancy && JSON.parse(c.vacancy))
-                        .reduce((v, c) => {
-                            let vcn = JSON.parse(c.vacancy)
-                            v[vcn.name] = vcn.income
-                            return v
-                        }, {})
-                },
                 succeedCardsByFamilies() {
                     let families = {}
 
@@ -642,7 +642,14 @@
                     })
 
                     return families
-                }
+                },
+                activeCardFeatures() {
+                    return {
+                        'cards_cost': this.getActiveFeature('cards_cost'),
+                        'cards_reward': this.getActiveFeature('cards_reward'),
+                        'clerks_salary': this.getActiveFeature('clerks_salary'),
+                    }
+                },
             },
             methods: {
                 selectPortrait(id) {
@@ -651,6 +658,15 @@
                         "room_id": this.roomId,
                         "player_name": this.playerName
                     });
+                },
+                jsonparse(val) {
+                    return JSON.parse(val)
+                },
+                getActiveFeature(name) {
+                    return JSON.parse(Object.values(this.game.features || {}).find(ft => JSON.parse(ft).type === name) || null)
+                },
+                applyFeature(name, value) {
+                    return value + (this.getActiveFeature(name)?.magnitude || 0)
                 },
                 isPlayerProjectParticipant() {
                     return this.roundStage === 2 && this.game.team.includes(this.playerName);
@@ -709,7 +725,9 @@
                     this.projectTeamMembersSelection = {};
                 },
                 playerVacancies(plName) {
-                    return Object.entries(this.game.vacancies).filter(v => v[1] === plName).map(v => v[0]);
+                    return Object.values(this.game.vacancies)
+                        .filter(v => v.assignee === plName)
+                        .map(v => JSON.parse(v.vacancy));
                 }
             },
             mounted() {
@@ -765,7 +783,7 @@
             },
         });
         app.component('TableCard', {
-            props: ['card', 'effectsVisibility', 'isLeader'],
+            props: ['card', 'effectsVisibility', 'isLeader', 'activeFeatures'],
             data() {
                 return {
                     tiers: {
@@ -780,9 +798,15 @@
             computed: {
                 vacancy() {
                     return (this.card.vacancy && JSON.parse(this.card.vacancy)) || null
+                },
+                feature() {
+                    return (this.card.feature && JSON.parse(this.card.feature)) || null
                 }
             },
             methods: {
+                applyFeature(name, value) {
+                    return value + (this.activeFeatures[name]?.magnitude || 0)
+                },
                 parseCardEffect(effect) {
                     return effect ? JSON.parse(effect) : {}
                 },
@@ -795,7 +819,7 @@
                 buildCategoriesDescription(categories) {
                     let translates = [
                         categories.includes('leader') ? 'лидер' : '',
-                        categories.includes('team') ? 'команда' : '',
+                        categories.includes('team') ? 'каждый в команде' : '',
                         categories.includes('all') ? 'каждый игрок' : '',
                         categories.includes('others') ? 'Каждый, кроме лидера и команды' : '',
                     ].filter(i => Boolean(i)).join(' и ');
@@ -808,6 +832,21 @@
         app.component('PointsBadge', {
             props: ['points', 'duration', 'prolonged', 'signed'],
             template: '<span class="badge rounded-pill bg-warning text-dark"><strong><span v-if="signed && points > 0">+</span>${ points }$</strong><span v-if="prolonged"><span v-if="duration">&nbsp;на&nbsp;${ duration }$&nbsp;<i class="bi-hourglass-split"></i></span></span></span>',
+        });
+        app.component('FeatureBadge', {
+            props: ['feature'],
+            data() {
+                return {
+                    featureTypes: {
+                        'cards_cost': 'Цена построек',
+                        'cards_reward': 'Награда за постройку',
+                        'clerks_salary': 'Зарплаты',
+                        'basic_income': 'Базовый доход',
+                        'random_gift': 'Случайный доход',
+                    },
+                }
+            },
+            template: '<span class="bg-success badge"><b>${ featureTypes[feature.type] }$</b> <points-badge style="font-size: 0.7rem;" :signed="true" :points="feature.magnitude" /></span>'
         });
 
         app.config.compilerOptions.delimiters = ["${", "}$"];
