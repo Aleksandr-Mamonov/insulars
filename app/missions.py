@@ -36,7 +36,7 @@ import random
 
 from .config import ROUNDS, INITIAL_PLAYER_POINTS
 from .database import select_one_from_db
-from .main import change_player_points
+from .game import change_player_points
 
 
 MISSIONS = [
@@ -46,6 +46,7 @@ MISSIONS = [
         "counter": 0,
         "rounds": 2,
         "reward": INITIAL_PLAYER_POINTS,
+        "is_failed": False,
         "is_complete": False,
     },
     {
@@ -54,6 +55,7 @@ MISSIONS = [
         "counter": 0,
         "rounds": 2,
         "reward": INITIAL_PLAYER_POINTS,
+        "is_failed": False,
         "is_complete": False,
     },
     {
@@ -62,6 +64,7 @@ MISSIONS = [
         "counter": 0,
         "rounds": 2,
         "reward": INITIAL_PLAYER_POINTS,
+        "is_failed": False,
         "is_complete": False,
     },
     {
@@ -70,6 +73,7 @@ MISSIONS = [
         "counter": 0,
         "rounds": 2,
         "reward": INITIAL_PLAYER_POINTS,
+        "is_failed": False,
         "is_complete": False,
     },
     {
@@ -77,6 +81,7 @@ MISSIONS = [
         "player": None,
         "deposit": 2 * INITIAL_PLAYER_POINTS,
         "reward": 4 * INITIAL_PLAYER_POINTS,
+        "is_failed": False,
         "is_complete": False,
     },
     {
@@ -87,19 +92,11 @@ MISSIONS = [
         "is_complete": False,
     },
     {
-        "name": "hold_one_vacancy_n_rounds",
-        "player": None,
-        "vacancies": {},
-        "counter": 0,
-        "rounds": 3,
-        "reward": 2 * INITIAL_PLAYER_POINTS,
-        "is_complete": False,
-    },
-    {
         "name": "suceeded_n_tier",
         "player": None,
         "tier": 5,
         "reward": 3 * INITIAL_PLAYER_POINTS,
+        "is_failed": False,
         "is_complete": False,
     },
     {
@@ -115,6 +112,7 @@ MISSIONS = [
         "player": None,
         "earn": 3 * INITIAL_PLAYER_POINTS,
         "reward": 2 * INITIAL_PLAYER_POINTS,
+        "is_failed": False,
         "is_complete": False,
     },
 ]
@@ -138,7 +136,7 @@ def update_counter_and_check_mission_completion(game: dict, mission: dict):
         complete_mission(game, mission)
 
 
-def check_missions(game: dict, is_round_successful: bool):
+def process_missions(game: dict, is_round_successful: bool):
     for mission in game["missions"]:
         if mission["is_complete"] or mission["is_failed"]:
             continue
@@ -174,28 +172,15 @@ def check_missions(game: dict, is_round_successful: bool):
                 if game["round"] == game["rounds"]:
                     complete_mission(game, mission)
 
-            case "hold_one_vacancy_n_rounds":
-                # TODO
-                # does player have any vacancy?
-                # if no
-                # mission['vacancies'].clear()
-                # if yes
-                # for vcn in vcns
-                # continued_vcn = mission['vacancies'].get(vcn)
-                # if continued_vcn:
-                # mission['vacancies'][continued_vcn] += 1
-                # if mission['vacancies'][continued_vcn] = n, reward
-                # else:
-                # mission['vacancies'][vcn] = 0
-                pass
             case "suceeded_n_tier":
                 result = select_one_from_db(
                     """
                     SELECT * FROM game_deck
-                    WHERE tier=:tier
+                    WHERE game_id=:game_id
+                    AND tier=:tier
                     AND available=false
                     """,
-                    {"tier": mission["tier"]},
+                    {"game_id": game["game_id"], "tier": mission["tier"]},
                 )
                 if result:
                     complete_mission(game, mission)
@@ -204,10 +189,11 @@ def check_missions(game: dict, is_round_successful: bool):
                 result = select_one_from_db(
                     """
                     SELECT * FROM game_deck
-                    WHERE tier>=:tier
+                    WHERE game_id=:game_id
+                    AND tier>=:tier
                     AND available=false
                     """,
-                    {"tier": mission["tier"]},
+                    {"game_id": game["game_id"], "tier": mission["tier"]},
                 )
                 if result:
                     mission["is_failed"] = True
@@ -220,9 +206,3 @@ def check_missions(game: dict, is_round_successful: bool):
                     complete_mission(game, mission)
 
     return game
-
-
-game = {"players": ("a", "b", "c")}
-# 1) at game start
-game = assign_missions(game)
-# 2) at round end

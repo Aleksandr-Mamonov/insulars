@@ -13,6 +13,8 @@ from .config import (
 )
 from .database import select_one_from_db, select_all_from_db, write_to_db
 from .cards import build_deck
+from .game import change_player_points
+from .missions import assign_missions, process_missions
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
@@ -138,10 +140,10 @@ def apply_effects(game: dict, effects: list) -> dict:
             payload["rounds_to_apply"] -= 1
             if payload["rounds_to_apply"] <= 0:
                 expired_effects.append(i)
-        elif effect["name"] == "leadership_ban_next_time":
-            if game["leader"] == players[0]:
-                game = rotate_players_order_in_round(game)
-                expired_effects.append(i)
+        # elif effect["name"] == "leadership_ban_next_time":
+        #     if game["leader"] == players[0]:
+        #         game = rotate_players_order_in_round(game)
+        #         expired_effects.append(i)
         elif effect["name"] == "give_overpayment":
             overpayment = game["round_delta"]
             if overpayment > 0:
@@ -241,7 +243,7 @@ def handle_game_start(data):
         "history": [],
         "incomes": {"basic_income_for_all": 0, "basic_income_for_random_player": 0},
     }
-
+    game = assign_missions(game)
     cards = build_deck(len(player_names) + 1)
     for card in cards:
         write_to_db(
@@ -276,19 +278,9 @@ def handle_game_start(data):
         for rotation in range(rm["number_of_games"] % len(player_names)):
             game = rotate_players_order_in_round(game)
 
-    write_to_db(
-        "UPDATE rooms SET game=:game WHERE uid=:room_id",
-        {"game": json.dumps(game), "room_id": room_id},
-    )
+    store_game(room_id, game)
 
     emit("game_started", build_payload(room_id), to=data["room_id"])
-
-
-def change_player_points(game: dict, player_name, points: int):
-    game["all_players_points"][player_name] = max(
-        game["all_players_points"][player_name] + points, 0
-    )
-    return game
 
 
 @socketio.on("select_cards_from_table")
@@ -360,8 +352,8 @@ def activate_card_feature(card: dict, game: dict):
     game_id = game["game_id"]
     basic_for_all = game["incomes"]["basic_income_for_all"]
     basic_for_random = game["incomes"]["basic_income_for_random_player"]
-    if card.get("feature"):
-        feat = json.loads(card["feature"])
+    feat = json.loads(card["feature"])
+    if feat:
         feature = feat["name"]
         multiple = feat["multiple"]
         if feature in ["decrease_cards_costs", "increase_cards_costs"]:
@@ -525,6 +517,9 @@ def handle_make_project_deposit(data):
     else:
         game, is_success = implement_project_result(game)
         game = issue_salaries(game)
+        game = apply_effects(game, game["effects_to_apply"])
+        game = pay_incomes(game)
+        game = process_missions(game, is_round_successful=is_success)
 
         store_game(room_id, game)
 
@@ -558,8 +553,6 @@ def handle_make_project_deposit(data):
             game["active_player"] = players_order_in_new_round[0]
             game["leader"] = players_order_in_new_round[0]
 
-            game = apply_effects(game, game["effects_to_apply"])
-            game = pay_incomes(game)
             store_game(room_id, game)
             emit("round_started", build_payload(room_id), to=room_id)
 
