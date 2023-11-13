@@ -21,8 +21,10 @@ def init_db():
         on_success,
         on_failure,
         available BOOLEAN DEFAULT TRUE,
+        repeatable BOOLEAN DEFAULT FALSE,
         feature,
         vacancy)""")
+
 
 if __name__ == "__main__":
     init_db()
