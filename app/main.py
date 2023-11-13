@@ -26,7 +26,9 @@ socketio = SocketIO(app)
 
 def _join_player_to_room(player_name, room_id):
     # TODO: validate player_name and room_id
-    room = select_one_from_db("SELECT uid FROM rooms WHERE uid=:room_id", {"room_id": room_id})
+    room = select_one_from_db(
+        "SELECT uid FROM rooms WHERE uid=:room_id", {"room_id": room_id}
+    )
     if not room:
         raise Exception("Room not found.")
 
@@ -148,7 +150,7 @@ def apply_effects(game: dict, effects: list) -> dict:
         players = payload["players"]
         if effect["name"] == "change_player_points":
             for player in players:
-                points = apply_feature('cards_reward', game, int(payload["points"]))
+                points = apply_feature("cards_reward", game, int(payload["points"]))
                 game = change_player_points(game, player, points)
             payload["rounds_to_apply"] -= 1
             if payload["rounds_to_apply"] <= 0:
@@ -172,7 +174,9 @@ def apply_effects(game: dict, effects: list) -> dict:
                     game = change_player_points(game, player, points_from_each_player)
             expired_effects.append(i)
 
-    effects = [item for item in effects if item not in [effects[i] for i in expired_effects]]
+    effects = [
+        item for item in effects if item not in [effects[i] for i in expired_effects]
+    ]
     game["effects_to_apply"] = effects
 
     return game
@@ -241,7 +245,7 @@ def handle_game_start(data):
         "rounds": int(data["rounds"]),
         "card_effect_visibility": data["card_effect_visibility"],
         "history": [],
-        'features': {},
+        "features": {},
     }
     game = assign_missions(game)
     cards = build_deck(len(player_names) + 1)
@@ -272,7 +276,9 @@ def handle_game_start(data):
 
     game["cards_on_table"] = draw_cards(game["game_id"])
 
-    rm = select_one_from_db("SELECT number_of_games FROM rooms WHERE uid=:room_id", {"room_id": room_id})
+    rm = select_one_from_db(
+        "SELECT number_of_games FROM rooms WHERE uid=:room_id", {"room_id": room_id}
+    )
     if rm["number_of_games"] > 0:
         for rotation in range(rm["number_of_games"] % len(player_names)):
             game = rotate_players_order_in_round(game)
@@ -297,13 +303,18 @@ def handle_select_cards_from_table(data):
 
 
 def get_game(room_id):
-    result = select_one_from_db("SELECT game FROM rooms WHERE uid=:room_id", {"room_id": room_id})
+    result = select_one_from_db(
+        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": room_id}
+    )
 
     return json.loads(result["game"]) if result["game"] else None
 
 
 def store_game(room_id, game):
-    write_to_db("UPDATE rooms SET game=:game WHERE uid=:room_id", {"game": json.dumps(game), "room_id": room_id})
+    write_to_db(
+        "UPDATE rooms SET game=:game WHERE uid=:room_id",
+        {"game": json.dumps(game), "room_id": room_id},
+    )
 
 
 def move_to_next_player(game: dict):
@@ -334,6 +345,11 @@ def populate_players_to_whom_apply_effect(game: dict, effect: dict):
             players_to_whom_apply.extend([game["leader"]])
         elif category == "team":
             players_to_whom_apply.extend(game["team"])
+        elif category == "minimal_contributors":
+            deposits = game["round_deposits"]
+            min_deposits = min(deposits.values())
+            min_deposits_players = [p for p in deposits if deposits[p] == min_deposits]
+            players_to_whom_apply.extend(min_deposits_players)
         else:
             raise RuntimeError("Unknown player category")
 
@@ -342,38 +358,46 @@ def populate_players_to_whom_apply_effect(game: dict, effect: dict):
 
 
 def assign_vacancy(game, card):
-    if not card['vacancy'] or card['vacancy'] == 'null':
+    if not card["vacancy"] or card["vacancy"] == "null":
         return game
 
-    deposits = game['round_deposits']
+    deposits = game["round_deposits"]
     max_dep = max(deposits.values())
     max_dep_players = [pl for pl in deposits if deposits[pl] == max_dep]
-    assignee = max_dep_players[0] if len(max_dep_players) == 1 else game['leader']
-    game['vacancies'][card['family']] = {'assignee': assignee, 'vacancy': card['vacancy']}
+    assignee = max_dep_players[0] if len(max_dep_players) == 1 else game["leader"]
+    game["vacancies"][card["family"]] = {
+        "assignee": assignee,
+        "vacancy": card["vacancy"],
+    }
 
     return game
 
 
 def activate_card_feature(game, card):
     if card.get("feature"):
-        game['features'][card['family']] = card["feature"]
+        game["features"][card["family"]] = card["feature"]
 
     return game
 
 
 def rm_card_from_deck(game_id, card_id):
-    write_to_db("UPDATE game_deck SET available=:available WHERE card_id=:card_id AND game_id=:game_id", {
-        "card_id": card_id,
-        "game_id": game_id,
-        "available": False,
-    })
+    write_to_db(
+        "UPDATE game_deck SET available=:available WHERE card_id=:card_id AND game_id=:game_id",
+        {
+            "card_id": card_id,
+            "game_id": game_id,
+            "available": False,
+        },
+    )
 
 
 def get_feature(feature: str, game: dict):
+
     for card_family in game['features']:
         feat = game['features'][card_family]
 
-        if feat['type'] == feature:
+
+        if feat["type"] == feature:
             return feat
 
     return None
@@ -381,7 +405,7 @@ def get_feature(feature: str, game: dict):
 
 def apply_feature(feature: str, game: dict, value: int):
     feat = get_feature(feature, game)
-    magnitude = feat['magnitude'] if feat else 0
+    magnitude = feat["magnitude"] if feat else 0
 
     return value + magnitude
 
@@ -390,9 +414,11 @@ def implement_project_result(game: dict):
     """Check whether team succeeded or failed in ended round"""
     card = game["cards_selected_by_leader"][0]
 
-    points_to_succeed = apply_feature('cards_cost', game, int(card["points_to_succeed"]))
+    points_to_succeed = apply_feature(
+        "cards_cost", game, int(card["points_to_succeed"])
+    )
 
-    overpayment = sum(game['round_deposits'].values()) - points_to_succeed
+    overpayment = sum(game["round_deposits"].values()) - points_to_succeed
 
     is_success = overpayment >= 0
 
@@ -431,19 +457,20 @@ def issue_salaries(game):
         salary = apply_feature('clerks_salary', game, int(vacancy['income']))
         game = change_player_points(game, assignment['assignee'], salary)
 
+
     return game
 
 
 def issue_incomes(game):
-    income_feat = get_feature('basic_income', game)
+    income_feat = get_feature("basic_income", game)
     if income_feat:
-        for pl in game['players']:
-            game = change_player_points(game, pl, int(income_feat['magnitude']))
+        for pl in game["players"]:
+            game = change_player_points(game, pl, int(income_feat["magnitude"]))
 
-    gift_feat = get_feature('gift', game)
+    gift_feat = get_feature("gift", game)
     if gift_feat:
-        pl = random.choice(list(game['players']))
-        game = change_player_points(game, pl, int(gift_feat['magnitude']))
+        pl = random.choice(list(game["players"]))
+        game = change_player_points(game, pl, int(gift_feat["magnitude"]))
 
     return game
 
@@ -530,8 +557,12 @@ def handle_select_team_for_round(data):
         raise
 
     # How many min and max players should be in a team
-    min_players_in_team = min([int(card["min_team"]) for card in game["cards_selected_by_leader"]])
-    max_players_in_team = max([int(card["max_team"]) for card in game["cards_selected_by_leader"]])
+    min_players_in_team = min(
+        [int(card["min_team"]) for card in game["cards_selected_by_leader"]]
+    )
+    max_players_in_team = max(
+        [int(card["max_team"]) for card in game["cards_selected_by_leader"]]
+    )
 
     # Check whether leader selected appropriate number of players
     if min_players_in_team <= len(data["selected_players"]) <= max_players_in_team:
@@ -558,12 +589,14 @@ def handle_portrait_select(data):
     """
     room_id = data["room_id"]
 
-    write_to_db("UPDATE room_players SET portrait_id=:portrait_id WHERE room_id=:room_id AND player_name=:player_name",
-                {
-                    "room_id": room_id,
-                    "portrait_id": data["portrait_id"],
-                    "player_name": data["player_name"],
-                })
+    write_to_db(
+        "UPDATE room_players SET portrait_id=:portrait_id WHERE room_id=:room_id AND player_name=:player_name",
+        {
+            "room_id": room_id,
+            "portrait_id": data["portrait_id"],
+            "player_name": data["player_name"],
+        },
+    )
 
     emit("player_portrait_selected", build_payload(room_id), to=room_id)
 

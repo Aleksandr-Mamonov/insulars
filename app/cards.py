@@ -85,7 +85,9 @@ def _card(name: str, family: str, tier: int, vacancy=None, feature=None, repeata
                 "name": "change_player_points",
                 "type": "negative",
                 "payload": {
-                    "categories_of_players": ["random_player"],
+                    "categories_of_players": (
+                        ["minimal_contributors"] if tier % 2 == 1 else ["leader"]
+                    ),
                     "players": [],
                     "rounds_to_apply": int(tier),
                     "points": -10,
@@ -98,11 +100,11 @@ def _card(name: str, family: str, tier: int, vacancy=None, feature=None, repeata
 
 
 def _vacancy(name: str, income: int):
-    return {'name': name, 'income': income}
+    return {"name": name, "income": income}
 
 
 def _feat(feat_type, magnitude):
-    return {'type': feat_type, 'magnitude': magnitude}
+    return {"type": feat_type, "magnitude": magnitude}
 
 
 def build_deck(families_num: int):
