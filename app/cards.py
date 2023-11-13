@@ -49,7 +49,7 @@ EFFECTS = [
 """
 
 
-def _card(name: str, family: str, tier: int, vacancy=None, feature=None):
+def _card(name: str, family: str, tier: int, vacancy=None, feature=None, repeatable=False):
     card = {
         "family": family,
         "tier": tier,
@@ -59,6 +59,7 @@ def _card(name: str, family: str, tier: int, vacancy=None, feature=None):
         "max_team": max([tier, 2]),
         "vacancy": vacancy,
         "feature": feature,
+        "repeatable": repeatable,
         "on_success": [
             {
                 "name": "change_player_points",
@@ -122,6 +123,9 @@ def build_deck(families_num: int):
               vacancy=_vacancy('Министр транспорта', 75),
               feature=_feat('cards_cost', -10)
               ),
+        # Prompt:
+        # Massive ceremonial event for the opening of new international airlines at the airport
+        _card("Запуск авиамаршрута", 'Transport', 6, repeatable=True),
 
         #  Shopping
         _card("Tent", 'Shopping', 1,
@@ -138,6 +142,9 @@ def build_deck(families_num: int):
               vacancy=_vacancy('Капиталист', 75),
               feature=_feat('cards_cost', +10)
               ),
+        # Prompt:
+        # Shopping event like Black Friday with a lot of people and shiny showcases around
+        _card("Черная пятница", 'Shopping', 6, repeatable=True),
 
         #  Education
         _card("Kindergarten", 'Education', 1,
@@ -154,6 +161,9 @@ def build_deck(families_num: int):
               vacancy=_vacancy('Академик', 70),
               feature=_feat('cards_reward', +10),
               ),
+        # Prompt:
+        # Scientific lection in a physical laboratory with a lector and few listeners
+        _card("Конференция", 'Education', 6, repeatable=True),
 
         # Religion
         _card("Altar", 'Religion', 1,
@@ -170,6 +180,9 @@ def build_deck(families_num: int):
               vacancy=_vacancy('Кадринал', 80),
               feature=_feat('cards_reward', -10)
               ),
+        # Prompt:
+        # Mysterious religious ritual with a lot of people in the center of the city, which looks like from noir movies
+        _card("Обряд", 'Religion', 6, repeatable=True),
 
         # Government
         _card("Rented office", 'Government', 1,
@@ -186,6 +199,9 @@ def build_deck(families_num: int):
               vacancy=_vacancy('Сенатор', 85),
               feature=_feat('clerks_salary', +10)
               ),
+        # Prompt:
+        # An official political debates between several people in a TV studio in a noir like movie style
+        _card("Дебаты", 'Government', 6, repeatable=True),
 
         # Culture
         _card("Museum", 'Culture', 1,
@@ -201,6 +217,10 @@ def build_deck(families_num: int):
               vacancy=_vacancy('Поп-идол', 90),
               feature=_feat('clerks_salary', -10),
               ),
+        # Prompt:
+        # A celebration of fun holiday with a lot of live music and people on the streets
+        # in the center of the city, which looks like from noir movies
+        _card("Фестиваль", 'Culture', 6, repeatable=True),
 
         # Food
         _card("Hot dog trailer", 'Food', 1,
@@ -217,6 +237,9 @@ def build_deck(families_num: int):
               vacancy=_vacancy('Метродотель', 70),
               feature=_feat('basic_income', +15),
               ),
+        # Prompt:
+        # Great food festival with a lot of people and dishes around on the streets in the center of the city
+        _card("Ярмарка", 'Food', 6, repeatable=True),
 
         _card("Emergency room", 'Medicine', 1,
               vacancy=_vacancy('Медбрат', 10),
@@ -232,6 +255,9 @@ def build_deck(families_num: int):
               vacancy=_vacancy('Главврач', 70),
               feature=_feat('basic_income', +10),
               ),
+        # Prompt:
+        # Scientific medical conference in a luxurious hotel with a lot of people and a speeker on a tribune
+        _card("Симпозиум", 'Medicine', 6, repeatable=True),
 
         _card("Playground", 'Entertainment', 1,
               vacancy=_vacancy('Аниматор', 10),
@@ -247,6 +273,9 @@ def build_deck(families_num: int):
               vacancy=_vacancy('Гуру', 65),
               feature=_feat('random_gift', +25),
               ),
+        # Prompt:
+        # Massive crowdy final of world wide football championship on a huge stadium
+        _card("Чемпионат мира", 'Entertainment', 6, repeatable=True),
 
         _card("Pawnshop", 'Finance', 1,
               vacancy=_vacancy('Ростовщик', 15),
@@ -262,6 +291,9 @@ def build_deck(families_num: int):
               vacancy=_vacancy('Финансист', 80),
               feature=_feat('random_gift', -25),
               ),
+        # Prompt:
+        # A hectic day of trading at the stock exchange with several clerks holding papers in their hands
+        _card("Торги", 'Entertainment', 6, repeatable=True),
     ]
 
     families = list(set([card["family"] for card in cards]))

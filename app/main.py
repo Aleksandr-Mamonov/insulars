@@ -68,6 +68,7 @@ def draw_cards(game_id):
             "points_to_succeed": card["points_to_succeed"],
             "min_team": card["min_team"],
             "max_team": card["max_team"],
+            "repeatable": card["repeatable"],
             "on_success": json.loads(card["on_success"]),
             "on_failure": json.loads(card["on_failure"]),
             "feature": json.loads(card.get("feature")),
@@ -261,6 +262,7 @@ def handle_game_start(data):
                 "points_to_succeed": card["points_to_succeed"],
                 "min_team": card["min_team"],
                 "max_team": card["max_team"],
+                "repeatable": card["repeatable"],
                 "on_success": json.dumps(card["on_success"]),
                 "on_failure": json.dumps(card["on_failure"]),
                 "feature": json.dumps(card.get("feature")),
@@ -411,7 +413,8 @@ def implement_project_result(game: dict):
         game = assign_vacancy(game, card)
         game = activate_card_feature(game, card)
 
-        rm_card_from_deck(game['game_id'], card['card_id'])
+        if not card['repeatable']:
+            rm_card_from_deck(game['game_id'], card['card_id'])
 
     card_has_no_vacancy = not card['vacancy'] or card['vacancy'] == 'null'
     family_vacancy_assigned = card['family'] in game['vacancies']
