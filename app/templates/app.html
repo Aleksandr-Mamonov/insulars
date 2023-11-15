@@ -332,7 +332,8 @@
                             <div class="col">
                                 <button type="button"
                                         class="btn btn-primary"
-                                        @click="submitProjectTeamSelection() && projectTeamMembersSelection.length > 0">Подтвердить выбор команды</button>
+                                        :disabled="projectTeamHasMinMembers"
+                                        @click="submitProjectTeamSelection()">Подтвердить выбор команды</button>
                             </div>
                         </div>
                     </div>
@@ -346,11 +347,11 @@
                             <div v-if="isLeader()">
                                 <div class="row">
                                     <div class="col">
-                                        <table-card @click="selectedCard = card.card_id"
+                                        <table-card @click="selectedCardId = card.card_id"
                                             :card="card"
                                             :vacancies="currentVacancies"
                                             class="border-4"
-                                            :class="{'shadow-lg border-info': selectedCard && (selectedCard === card.card_id), 'border-white': !(selectedCard && (selectedCard === card.card_id))}"
+                                            :class="{'shadow-lg border-info': selectedCardId && (selectedCardId === card.card_id), 'border-white': !(selectedCardId && (selectedCardId === card.card_id))}"
                                             v-for="card in game.cards_on_table"
                                             :key="card.card_id"
                                             :active-features="activeCardFeatures"
@@ -365,7 +366,7 @@
                                         <button type="button"
                                                 class="btn btn-primary"
                                                 @click="submitCardsSelection()"
-                                                :disabled="!selectedCard">Подтвердить выбор проекта</button>
+                                                :disabled="!selectedCardId">Подтвердить выбор проекта</button>
                                     </div>
                                 </div>
                             </div>
@@ -528,7 +529,7 @@
 
                     showPortraitOptions: ref(false),
                     debug: ref(false),
-                    selectedCard: ref(null),
+                    selectedCardId: ref(null),
                     playerProjectBid: ref(0),
                     projectTeamMembersSelection: ref({}),
                     playerName: '{{ player_name }}',
@@ -606,6 +607,9 @@
                     }
 
                     return selectedPlayers;
+                },
+                projectTeamHasMinMembers() {
+                    return this.selectedProjectTeamMembers.length < Math.min.apply(null, this.game.cards_selected_by_leader.map(c => c.min_team))
                 },
                 succeedCardsByFamilies() {
                     let families = {}
@@ -692,10 +696,10 @@
                 submitCardsSelection() {
                     let payload = {
                         "room_id": this.roomId,
-                        "selected_card_id": this.selectedCard,
+                        "selected_card_id": this.selectedCardId,
                     }
                     socket.emit('select_cards_from_table', payload)
-                    this.selectedCard = null;
+                    this.selectedCardId = null;
                 },
                 submitProjectTeamSelection() {
                     let payload = {
