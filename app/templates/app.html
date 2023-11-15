@@ -272,7 +272,7 @@
                 <div class="row mb-3">
                     <div class="col">
                          <h5>
-                             <span>Ваш счет: <points-badge :points="game.all_players_points && game.all_players_points[playerName]" /></span>
+                             <span>Счет: <points-badge :points="game.all_players_points && game.all_players_points[playerName]" /></span>
                              <span class="ms-3">
                                 <span v-for="effect in playerEffectsToApply">
                                     <span v-if="effect.name == 'change_player_points'">
@@ -281,6 +281,12 @@
                                 </span>
                              </span>
                          </h5>
+
+                         <div class="bg-light p-4">
+                             <p class="lead">Мое задание: <span :class="{'text-success fw-bold': mission?.is_complete}">${ formatMissionDescription(mission)[0] }$</span></p>
+                             <p> ${ formatMissionDescription(mission)[1] }$. Награда <points-badge :points="mission?.reward" :signed="true"/> </p>
+                         </div>
+
                          <p>
                             <span>Раунд <i class="bi-hourglass-split"></i> ${ game.round }$ / ${ game.rounds }$</span>
                             <span v-if="roundStage === 0">, мэр выбирает проект </span>
@@ -326,7 +332,8 @@
                             <div class="col">
                                 <button type="button"
                                         class="btn btn-primary"
-                                        @click="submitProjectTeamSelection() && projectTeamMembersSelection.length > 0">Подтвердить выбор команды</button>
+                                        :disabled="projectTeamHasMinMembers"
+                                        @click="submitProjectTeamSelection()">Подтвердить выбор команды</button>
                             </div>
                         </div>
                     </div>
@@ -340,11 +347,11 @@
                             <div v-if="isLeader()">
                                 <div class="row">
                                     <div class="col">
-                                        <table-card @click="selectedCard = card.card_id"
+                                        <table-card @click="selectedCardId = card.card_id"
                                             :card="card"
                                             :vacancies="currentVacancies"
                                             class="border-4"
-                                            :class="{'shadow-lg border-info': selectedCard && (selectedCard === card.card_id), 'border-white': !(selectedCard && (selectedCard === card.card_id))}"
+                                            :class="{'shadow-lg border-info': selectedCardId && (selectedCardId === card.card_id), 'border-white': !(selectedCardId && (selectedCardId === card.card_id))}"
                                             v-for="card in game.cards_on_table"
                                             :key="card.card_id"
                                             :active-features="activeCardFeatures"
@@ -359,7 +366,7 @@
                                         <button type="button"
                                                 class="btn btn-primary"
                                                 @click="submitCardsSelection()"
-                                                :disabled="!selectedCard">Подтвердить выбор проекта</button>
+                                                :disabled="!selectedCardId">Подтвердить выбор проекта</button>
                                     </div>
                                 </div>
                             </div>
@@ -503,7 +510,7 @@
                     </div>
                 </div>
                 <div v-if="condition == 'on_failure' && !vacancy && vacancies[card.family]">
-                    Переназначение <vacancy-badge :name="vacancies[card.family].name"
+                    Выборы <vacancy-badge :name="vacancies[card.family].name"
                                                   :salary="applyFeature('clerks_salary', vacancies[card.family].income)"/>
                 </div>
             </div>
@@ -522,7 +529,7 @@
 
                     showPortraitOptions: ref(false),
                     debug: ref(false),
-                    selectedCard: ref(null),
+                    selectedCardId: ref(null),
                     playerProjectBid: ref(0),
                     projectTeamMembersSelection: ref({}),
                     playerName: '{{ player_name }}',
@@ -601,6 +608,9 @@
 
                     return selectedPlayers;
                 },
+                projectTeamHasMinMembers() {
+                    return this.selectedProjectTeamMembers.length < Math.min.apply(null, this.game.cards_selected_by_leader.map(c => c.min_team))
+                },
                 succeedCardsByFamilies() {
                     let families = {}
 
@@ -639,6 +649,9 @@
                         'clerks_salary': this.getActiveFeature('clerks_salary'),
                     }
                 },
+                mission() {
+                    return this.game.missions?.find(m => m.player == this.player.name)
+                }
             },
             methods: {
                 selectPortrait(id) {
@@ -683,10 +696,10 @@
                 submitCardsSelection() {
                     let payload = {
                         "room_id": this.roomId,
-                        "selected_card_id": this.selectedCard,
+                        "selected_card_id": this.selectedCardId,
                     }
                     socket.emit('select_cards_from_table', payload)
-                    this.selectedCard = null;
+                    this.selectedCardId = null;
                 },
                 submitProjectTeamSelection() {
                     let payload = {
@@ -700,6 +713,38 @@
                     return Object.values(this.game.vacancies)
                         .filter(v => v.assignee === plName)
                         .map(v => v.vacancy);
+                },
+                formatMissionDescription(mission) {
+                    if (!mission) {
+                        return [null, null];
+                    }
+                    if (mission.name === 'fail_as_team_n_rounds') {
+                        return ['Саботёр', `Провалить ${mission.rounds} проектов в команде`];
+                    }
+                    if (mission.name === 'succeed_as_team_n_rounds') {
+                        return ['Строитель', `Завершить ${mission.rounds} проектов в команде`];
+                    }
+                    if (mission.name === 'fail_as_leader_n_rounds') {
+                        return ['Коррупционер', `Провалить ${mission.rounds} проектов мэром`];
+                    }
+                    if (mission.name === 'succeed_as_leader_n_rounds') {
+                        return ['Губернатор', `Завершить ${mission.rounds} проектов мэром`];
+                    }
+                    if (mission.name === 'deposit_n_points_at_once') {
+                        return ['Меценат', `Вложить ${mission.deposit} очков за раз`];
+                    }
+                    if (mission.name === 'leader_without_overpayment') {
+                        return ['Честный мэр', `Не получить переплаты, будучи мэром`];
+                    }
+                    if (mission.name === 'succeeded_n_tier') {
+                        return ['Магнат', `Обеспечить постройку здания уровня ${mission.tier}`];
+                    }
+                    if (mission.name === 'lower_than_n_tier') {
+                        return ['Луддит', `Не допустить постройку здания уровня ${mission.tier}`];
+                    }
+                    if (mission.name === 'earn_n_points') {
+                        return ['Миллионер', `Заработать ${mission.earn} очков`];
+                    }
                 }
             },
             mounted() {
@@ -787,10 +832,11 @@
                 },
                 buildCategoriesDescription(categories) {
                     let translates = [
-                        categories.includes('leader') ? 'лидер' : '',
+                        categories.includes('minimal_contributors') ? 'наименее вложивший' : '',
+                        categories.includes('leader') ? 'мэр' : '',
                         categories.includes('team') ? 'каждый в команде' : '',
                         categories.includes('all') ? 'каждый игрок' : '',
-                        categories.includes('others') ? 'Каждый, кроме лидера и команды' : '',
+                        categories.includes('others') ? 'каждый, кроме лидера и команды' : '',
                     ].filter(i => Boolean(i)).join(' и ');
 
                     return translates.charAt(0).toUpperCase() + translates.slice(1)
