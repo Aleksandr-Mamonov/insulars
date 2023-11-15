@@ -39,89 +39,92 @@ from .database import select_one_from_db
 from .game import change_player_points
 
 
-MISSIONS = [
-    {
-        "name": "fail_as_team_n_rounds",
-        "player": None,
-        "counter": 0,
-        "rounds": 2,
-        "reward": INITIAL_PLAYER_POINTS,
-        "is_failed": False,
-        "is_complete": False,
-    },
-    {
-        "name": "succeed_as_team_n_rounds",
-        "player": None,
-        "counter": 0,
-        "rounds": 2,
-        "reward": INITIAL_PLAYER_POINTS,
-        "is_failed": False,
-        "is_complete": False,
-    },
-    {
-        "name": "fail_as_leader_n_rounds",
-        "player": None,
-        "counter": 0,
-        "rounds": 2,
-        "reward": INITIAL_PLAYER_POINTS,
-        "is_failed": False,
-        "is_complete": False,
-    },
-    {
-        "name": "succeed_as_leader_n_rounds",
-        "player": None,
-        "counter": 0,
-        "rounds": 2,
-        "reward": INITIAL_PLAYER_POINTS,
-        "is_failed": False,
-        "is_complete": False,
-    },
-    {
-        "name": "deposit_n_points_at_once",
-        "player": None,
-        "deposit": 2 * INITIAL_PLAYER_POINTS,
-        "reward": 4 * INITIAL_PLAYER_POINTS,
-        "is_failed": False,
-        "is_complete": False,
-    },
-    {
-        "name": "leader_without_overpayment",
-        "player": None,
-        "reward": 2 * INITIAL_PLAYER_POINTS,
-        "is_failed": False,
-        "is_complete": False,
-    },
-    {
-        "name": "succeeded_n_tier",
-        "player": None,
-        "tier": 5,
-        "reward": 3 * INITIAL_PLAYER_POINTS,
-        "is_failed": False,
-        "is_complete": False,
-    },
-    {
-        "name": "lower_than_n_tier",
-        "player": None,
-        "tier": 4,
-        "reward": 3 * INITIAL_PLAYER_POINTS,
-        "is_failed": False,
-        "is_complete": False,
-    },
-    {
-        "name": "earn_n_points",
-        "player": None,
-        "earn": 3 * INITIAL_PLAYER_POINTS,
-        "reward": 2 * INITIAL_PLAYER_POINTS,
-        "is_failed": False,
-        "is_complete": False,
-    },
-]
+def _define_missions(initial_player_points: int):
+    return [
+        {
+            "name": "fail_as_team_n_rounds",
+            "player": None,
+            "counter": 0,
+            "rounds": 2,
+            "reward": initial_player_points,
+            "is_failed": False,
+            "is_complete": False,
+        },
+        {
+            "name": "succeed_as_team_n_rounds",
+            "player": None,
+            "counter": 0,
+            "rounds": 2,
+            "reward": initial_player_points,
+            "is_failed": False,
+            "is_complete": False,
+        },
+        {
+            "name": "fail_as_leader_n_rounds",
+            "player": None,
+            "counter": 0,
+            "rounds": 2,
+            "reward": initial_player_points,
+            "is_failed": False,
+            "is_complete": False,
+        },
+        {
+            "name": "succeed_as_leader_n_rounds",
+            "player": None,
+            "counter": 0,
+            "rounds": 2,
+            "reward": initial_player_points,
+            "is_failed": False,
+            "is_complete": False,
+        },
+        {
+            "name": "deposit_n_points_at_once",
+            "player": None,
+            "deposit": 2 * initial_player_points,
+            "reward": 4 * initial_player_points,
+            "is_failed": False,
+            "is_complete": False,
+        },
+        {
+            "name": "leader_without_overpayment",
+            "player": None,
+            "reward": 2 * initial_player_points,
+            "is_failed": False,
+            "is_complete": False,
+        },
+        {
+            "name": "succeeded_n_tier",
+            "player": None,
+            "tier": 5,
+            "reward": 3 * initial_player_points,
+            "is_failed": False,
+            "is_complete": False,
+        },
+        {
+            "name": "lower_than_n_tier",
+            "player": None,
+            "tier": 4,
+            "reward": 3 * initial_player_points,
+            "is_failed": False,
+            "is_complete": False,
+        },
+        {
+            "name": "earn_n_points",
+            "player": None,
+            "earn": 3 * initial_player_points,
+            "reward": 2 * initial_player_points,
+            "is_failed": False,
+            "is_complete": False,
+        },
+    ]
 
 
-def assign_missions(game: dict):
-    game["missions"] = random.sample(MISSIONS, len(game["players"]))
+def assign_missions(game: dict, initial_player_points: int):
+    missions = _define_missions(initial_player_points)
+    game["missions"] = random.sample(missions, len(game["players"]))
     for i, player in enumerate(game["players"]):
         game["missions"][i]["player"] = player
+
     return game
 
 

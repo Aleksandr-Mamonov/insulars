@@ -247,7 +247,7 @@ def handle_game_start(data):
         "history": [],
         "features": {},
     }
-    game = assign_missions(game)
+    game = assign_missions(game, int(data["initial_player_points"]))
     cards = build_deck(len(player_names) + 1)
     for card in cards:
         write_to_db(
