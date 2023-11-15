@@ -92,7 +92,7 @@ MISSIONS = [
         "is_complete": False,
     },
     {
-        "name": "suceeded_n_tier",
+        "name": "succeeded_n_tier",
         "player": None,
         "tier": 5,
         "reward": 3 * INITIAL_PLAYER_POINTS,
@@ -102,7 +102,7 @@ MISSIONS = [
     {
         "name": "lower_than_n_tier",
         "player": None,
-        "tier": 3,
+        "tier": 4,
         "reward": 3 * INITIAL_PLAYER_POINTS,
         "is_failed": False,
         "is_complete": False,
@@ -171,7 +171,7 @@ def process_missions(game: dict, is_round_successful: bool):
             if game["round"] == game["rounds"]:
                 complete_mission(game, mission)
 
-        if mission["name"] == "suceeded_n_tier":
+        if mission["name"] == "succeeded_n_tier":
             result = select_one_from_db(
                 """
                 SELECT * FROM game_deck

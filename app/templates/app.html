@@ -272,7 +272,7 @@
                 <div class="row mb-3">
                     <div class="col">
                          <h5>
-                             <span>Ваш счет: <points-badge :points="game.all_players_points && game.all_players_points[playerName]" /></span>
+                             <span>Счет: <points-badge :points="game.all_players_points && game.all_players_points[playerName]" /></span>
                              <span class="ms-3">
                                 <span v-for="effect in playerEffectsToApply">
                                     <span v-if="effect.name == 'change_player_points'">
@@ -281,6 +281,12 @@
                                 </span>
                              </span>
                          </h5>
+
+                         <div class="bg-light p-4">
+                             <p class="lead">Мое задание: <span :class="{'text-success fw-bold': mission?.is_complete}">${ formatMissionDescription(mission)[0] }$</span></p>
+                             <p> ${ formatMissionDescription(mission)[1] }$. Награда <points-badge :points="mission?.reward" :signed="true"/> </p>
+                         </div>
+
                          <p>
                             <span>Раунд <i class="bi-hourglass-split"></i> ${ game.round }$ / ${ game.rounds }$</span>
                             <span v-if="roundStage === 0">, мэр выбирает проект </span>
@@ -639,6 +645,9 @@
                         'clerks_salary': this.getActiveFeature('clerks_salary'),
                     }
                 },
+                mission() {
+                    return this.game.missions?.find(m => m.player == this.player.name)
+                }
             },
             methods: {
                 selectPortrait(id) {
@@ -700,6 +709,38 @@
                     return Object.values(this.game.vacancies)
                         .filter(v => v.assignee === plName)
                         .map(v => v.vacancy);
+                },
+                formatMissionDescription(mission) {
+                    if (!mission) {
+                        return [null, null];
+                    }
+                    if (mission.name === 'fail_as_team_n_rounds') {
+                        return ['Саботёр', `Провалить ${mission.rounds} проектов в команде`];
+                    }
+                    if (mission.name === 'succeed_as_team_n_rounds') {
+                        return ['Строитель', `Завершить ${mission.rounds} проектов в команде`];
+                    }
+                    if (mission.name === 'fail_as_leader_n_rounds') {
+                        return ['Коррупционер', `Провалить ${mission.rounds} проектов мэром`];
+                    }
+                    if (mission.name === 'succeed_as_leader_n_rounds') {
+                        return ['Губернатор', `Завершить ${mission.rounds} проектов мэром`];
+                    }
+                    if (mission.name === 'deposit_n_points_at_once') {
+                        return ['Меценат', `Вложить ${mission.deposit} очков за раз`];
+                    }
+                    if (mission.name === 'leader_without_overpayment') {
+                        return ['Честный мэр', `Не получить переплаты, будучи мэром`];
+                    }
+                    if (mission.name === 'succeeded_n_tier') {
+                        return ['Магнат', `Обеспечить постройку здания уровня ${mission.tier}`];
+                    }
+                    if (mission.name === 'lower_than_n_tier') {
+                        return ['Луддит', `Не допустить постройку здания уровня ${mission.tier}`];
+                    }
+                    if (mission.name === 'earn_n_points') {
+                        return ['Миллионер', `Заработать ${mission.earn} очков`];
+                    }
                 }
             },
             mounted() {
