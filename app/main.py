@@ -75,7 +75,8 @@ def draw_cards(game_id):
             "on_failure": json.loads(card["on_failure"]),
             "feature": json.loads(card.get("feature")),
             "vacancy": json.loads(card.get("vacancy")),
-        } for card in cards
+        }
+        for card in cards
     ]
 
 
@@ -225,7 +226,10 @@ def handle_player_enter(data):
 def handle_game_start(data):
     room_id = data["room_id"]
 
-    players = select_all_from_db("SELECT player_name FROM room_players WHERE room_id=:room_id", {"room_id": room_id})
+    players = select_all_from_db(
+        "SELECT player_name FROM room_players WHERE room_id=:room_id",
+        {"room_id": room_id},
+    )
     player_names = [pl["player_name"] for pl in players]
 
     game = {
@@ -237,7 +241,9 @@ def handle_game_start(data):
         "players_to_move": player_names,
         "active_player": player_names[0],
         "leader": player_names[0],
-        "all_players_points": {pln: int(data["initial_player_points"]) for pln in player_names},
+        "all_players_points": {
+            pln: int(data["initial_player_points"]) for pln in player_names
+        },
         "round_deposits": {},
         "cards_selected_by_leader": [],
         "team": [],
@@ -358,16 +364,18 @@ def populate_players_to_whom_apply_effect(game: dict, effect: dict):
 
 
 def assign_vacancy(game, card):
-    if not card["vacancy"] or card["vacancy"] == "null":
-        return game
-
     deposits = game["round_deposits"]
     max_dep = max(deposits.values())
     max_dep_players = [pl for pl in deposits if deposits[pl] == max_dep]
     assignee = max_dep_players[0] if len(max_dep_players) == 1 else game["leader"]
+    vacancy = (
+        card["vacancy"]
+        if card["vacancy"]
+        else game["vacancies"][card["family"]]["vacancy"]
+    )
     game["vacancies"][card["family"]] = {
         "assignee": assignee,
-        "vacancy": card["vacancy"],
+        "vacancy": vacancy,
     }
 
     return game
@@ -392,10 +400,8 @@ def rm_card_from_deck(game_id, card_id):
 
 
 def get_feature(feature: str, game: dict):
-
-    for card_family in game['features']:
-        feat = game['features'][card_family]
-
+    for card_family in game["features"]:
+        feat = game["features"][card_family]
 
         if feat["type"] == feature:
             return feat
@@ -439,11 +445,11 @@ def implement_project_result(game: dict):
         game = assign_vacancy(game, card)
         game = activate_card_feature(game, card)
 
-        if not card['repeatable']:
-            rm_card_from_deck(game['game_id'], card['card_id'])
+        if not card["repeatable"]:
+            rm_card_from_deck(game["game_id"], card["card_id"])
 
-    card_has_no_vacancy = not card['vacancy'] or card['vacancy'] == 'null'
-    family_vacancy_assigned = card['family'] in game['vacancies']
+    card_has_no_vacancy = not card["vacancy"] or card["vacancy"] == "null"
+    family_vacancy_assigned = card["family"] in game["vacancies"]
     if not is_success and card_has_no_vacancy and family_vacancy_assigned:
         game = assign_vacancy(game, card)
 
@@ -451,12 +457,11 @@ def implement_project_result(game: dict):
 
 
 def issue_salaries(game):
-    for family in game['vacancies']:
-        assignment = game['vacancies'][family]
-        vacancy = assignment['vacancy']
-        salary = apply_feature('clerks_salary', game, int(vacancy['income']))
-        game = change_player_points(game, assignment['assignee'], salary)
-
+    for family in game["vacancies"]:
+        assignment = game["vacancies"][family]
+        vacancy = assignment["vacancy"]
+        salary = apply_feature("clerks_salary", game, int(vacancy["income"]))
+        game = change_player_points(game, assignment["assignee"], salary)
 
     return game
 
