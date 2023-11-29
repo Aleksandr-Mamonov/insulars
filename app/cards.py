@@ -1,386 +1,351 @@
 import random
-
-CATEGORIES_OF_PLAYERS = ["all", "leader", "team", "others", "random_player"]
-"""
-EFFECTS = [
-    {
-        "name": "change_player_points",
-        "type": "positive",
-        "payload": {
-            "categories_of_players": ["leader", "team"],
-            "players": [],
-            "rounds_to_apply": 1,
-            "points": 10,
-        },
-    },
-    {
-        "name": "leadership_ban_next_time",
-        "type": "negative",
-        "payload": {
-            "categories_of_players": ["leader"],
-            "players": [],
-        },
-    },
-    {
-        "name": "cancel_effects",
-        "payload": {
-            "categories_of_players": ["all"],
-            "players": [],
-            "cancel": "all_effects",  # ['all_effects','positive_effects','negative_effects']
-        },
-    },
-    {
-        "name": "give_overpayment",
-        "type": "positive",
-        "payload": {
-            "categories_of_players": ["leader"],
-            "players": [],
-        },
-    },
-    {
-        "name": "take_away_underpayment",
-        "type": "negative",
-        "payload": {
-            "categories_of_players": ["leader"],
-            "players": [],
-        },
-    },
-]
-"""
+from .money import coin, purse, CLT, RLG, SCN, PPR
 
 
-def _card(name: str, family: str, tier: int, points: int, reward: int, vacancy=None, feature=None, repeatable=False):
+def _deal(price, reward):
+    return [price, reward]
+
+
+def _job(name, deal):
+    return {
+        'name': name,
+        "deal": deal,
+    }
+
+
+def _card(name: str, family: str, tier: int, card_type: str = 'house', project_jobs=None, jobs=None):
     card = {
+        "name": name,
+        "card_type":  card_type,
         "family": family,
         "tier": tier,
-        "name": name,
-        "points_to_succeed": points,
-        "min_team": max([tier - 1, 2]),
-        "max_team": max([tier, 2]),
-        "vacancy": vacancy,
-        "feature": feature,
-        "repeatable": repeatable,
-        "on_success": [
-            {
-                "name": "change_player_points",
-                "type": "positive",
-                "payload": {
-                    "categories_of_players": ["team"],
-                    "players": [],
-                    "rounds_to_apply": 1,
-                    "points": reward,
-                },
-            },
-            {
-                "name": "give_overpayment",
-                "type": "positive",
-                "payload": {
-                    "categories_of_players": ["leader"],
-                    "players": [],
-                },
-            },
-        ],
-        "on_failure": [
-            {
-                "name": "change_player_points",
-                "type": "negative",
-                "payload": {
-                    "categories_of_players": (
-                        ["minimal_contributors"] if tier % 2 == 1 else ["leader"]
-                    ),
-                    "players": [],
-                    "rounds_to_apply": 1,
-                    "points": -reward,
-                },
-            },
-        ],
+        "repeatable": card_type != 'house',
+        "jobs": jobs or [],
+        'project_jobs': project_jobs or []
     }
 
     return card
 
 
-def _vacancy(name: str, income: int):
-    return {"name": name, "income": income}
-
-
-def _feat(feat_type, magnitude):
-    return {"type": feat_type, "magnitude": magnitude}
-
-
-def build_deck(families_num: int):
-    families_num = min([families_num, 10])
+def default_houses(n):
+    basic_deal = _deal(purse(coin(0)), purse(coin(5)))
     cards = [
-        # Transport: decrease card cost +
-        _card("Rickshaw", 'Transport', 1,
-              points=10, reward=10,
-              vacancy=_vacancy('Извозчик', 10),
-              feature=_feat('cards_cost', -3)
-              ),
-        _card("Bike rental network", 'Transport', 2,
-              points=25, reward=25
-              ),
-        _card("Taxi station", 'Transport', 3,
-              points=40, reward=35,
-              vacancy=_vacancy('Логист', 40),
-              feature=_feat('cards_cost', -5)
-              ),
-        _card("Railway station", 'Transport', 4,
-              points=55, reward=50
-              ),
-        _card("Airport", 'Transport', 5,
-              points=70, reward=65,
-              vacancy=_vacancy('Министр транспорта', 75),
-              feature=_feat('cards_cost', -10)
-              ),
-        # Prompt:
-        # Massive ceremonial event for the opening of new international airlines at the airport
-        _card("Запуск авиамаршрута", 'Transport', 6,
-              points=60, reward=50,
-              repeatable=True),
-
-        #  Shopping: increase cards cost -
-        _card("Tent", 'Shopping', 1,
-              points=10, reward=20,
-              vacancy=_vacancy('Лавочник', 15),
-              feature=_feat('cards_cost', +3)
-              ),
-        _card("Trailer", 'Shopping', 2,
-              points=20, reward=30
-              ),
-        _card("Shop", 'Shopping', 3,
-              points=30, reward=40,
-              vacancy=_vacancy('Торговец', 35),
-              feature=_feat('cards_cost', +5)
-              ),
-        _card("Market", 'Shopping', 4,
-              points=40, reward=55
-              ),
-        _card("Shopping center", 'Shopping', 5,
-              points=50, reward=70,
-              vacancy=_vacancy('Капиталист', 75),
-              feature=_feat('cards_cost', +10)
-              ),
-        # Prompt:
-        # Shopping event like Black Friday with a lot of people and shiny showcases around
-        _card("Черная пятница", 'Shopping', 6,
-              points=60, reward=45,
-              repeatable=True),
-
-        #  Education: increase cards reward +
-        _card("Kindergarten", 'Education', 1,
-              points=10, reward=10,
-              vacancy=_vacancy('Воспитатель', 5),
-              feature=_feat('cards_reward', +3),
-              ),
-        _card("School", 'Education', 2,
-              points=25, reward=15
-              ),
-        _card("College", 'Education', 3,
-              points=40, reward=20,
-              vacancy=_vacancy('Профессор', 30),
-              feature=_feat('cards_reward', +5),
-              ),
-        _card("University", 'Education', 4,
-              points=50, reward=30),
-        _card("Academy", 'Education', 5,
-              points=60, reward=40,
-              vacancy=_vacancy('Академик', 70),
-              feature=_feat('cards_reward', +10),
-              ),
-        # Prompt:
-        # Scientific lection in a physical laboratory with a lector and few listeners
-        _card("Конференция", 'Education', 6,
-              points=60, reward=40,
-              repeatable=True),
-
-        # Religion: decrease cards reward -
-        _card("Altar", 'Religion', 1,
-              points=10, reward=15,
-              vacancy=_vacancy('Служка', 5),
-              feature=_feat('cards_reward', -3),
-              ),
-        _card("Chapel", 'Religion', 2,
-              points=20, reward=25
-              ),
-        _card("Church", 'Religion', 3,
-              points=30, reward=30,
-              vacancy=_vacancy('Священник', 20),
-              feature=_feat('cards_reward', -5)
-              ),
-        _card("Temple", 'Religion', 4,
-              points=40, reward=40
-              ),
-        _card("Cathedral", 'Religion', 5,
-              points=50, reward=50,
-              vacancy=_vacancy('Кадринал', 80),
-              feature=_feat('cards_reward', -10)
-              ),
-        # Prompt:
-        # Mysterious religious ritual with a lot of people in the center of the city, which looks like from noir movies
-        _card("Обряд", 'Religion', 6,
-              points=60, reward=45,
-              repeatable=True),
-
-        # Government: increase salary +
-        _card("Rented office", 'Government', 1,
-              points=15, reward=10,
-              vacancy=_vacancy('Зам зама', 3),
-              feature=_feat('clerks_salary', +3),
-              ),
-        _card("Administration", 'Government', 2,
-              points=25, reward=15
-              ),
-        _card("City hall", 'Government', 3,
-              points=35, reward=20,
-              vacancy=_vacancy('Депутат', 25),
-              feature=_feat('clerks_salary', +5),
-              ),
-        _card("Parliament", 'Government', 4,
-              points=45, reward=30
-              ),
-        _card("Government house", 'Government', 5,
-              points=55, reward=45,
-              vacancy=_vacancy('Сенатор', 85),
-              feature=_feat('clerks_salary', +10)
-              ),
-        # Prompt:
-        # An official political debates between several people in a TV studio in a noir like movie style
-        _card("Дебаты", 'Government', 6,
-              points=60, reward=40,
-              repeatable=True),
-
-        # Culture: decrease salary -
-        _card("Museum", 'Culture', 1,
-              points=10, reward=15,
-              vacancy=_vacancy('Смотритель', 5),
-              feature=_feat('clerks_salary', -3)),
-        _card("Theatre", 'Culture', 2,
-              points=20, reward=25),
-        _card("Philarmony", 'Culture', 3,
-              points=30, reward=30,
-              vacancy=_vacancy('Маэстро', 25),
-              feature=_feat('clerks_salary', -5),
-              ),
-        _card("Opera", 'Culture', 4,
-              points=40, reward=35),
-        _card("Cultural center", 'Culture', 5,
-              points=50, reward=40,
-              vacancy=_vacancy('Поп-идол', 90),
-              feature=_feat('clerks_salary', -10),
-              ),
-        # Prompt:
-        # A celebration of fun holiday with a lot of live music and people on the streets
-        # in the center of the city, which looks like from noir movies
-        _card("Фестиваль", 'Culture', 6,
-              points=60, reward=35,
-              repeatable=True),
-
-        # Food: basic income ++
-        _card("Hot dog trailer", 'Food', 1,
-              points=20, reward=10,
-              vacancy=_vacancy('Официант', 10),
-              feature=_feat('basic_income', +5),
-              ),
-        _card("Bakery", 'Food', 2,
-              points=30, reward=15),
-        _card("Canteen", 'Food', 3,
-              points=45, reward=20,
-              vacancy=_vacancy('Шеф-повар', 25),
-              feature=_feat('basic_income', +10),
-              ),
-        _card("Restaurant", 'Food', 4,
-              points=60, reward=30),
-        _card("Hotel", 'Food', 5,
-              points=70, reward=40,
-              vacancy=_vacancy('Метродотель', 70),
-              feature=_feat('basic_income', +15),
-              ),
-        # Prompt:
-        # Great food festival with a lot of people and dishes around on the streets in the center of the city
-        _card("Ярмарка", 'Food', 6,
-              points=60, reward=30,
-              repeatable=True),
-
-        # Medicine: basic income +
-        _card("Emergency room", 'Medicine', 1,
-              points=15, reward=15,
-              vacancy=_vacancy('Медбрат', 10),
-              feature=_feat('basic_income', +3),
-              ),
-        _card("Local clinic", 'Medicine', 2,
-              points=25, reward=20),
-        _card("City polyclinic", 'Medicine', 3,
-              points=40, reward=25,
-              vacancy=_vacancy('Фельдшер', 25),
-              feature=_feat('basic_income', +5),
-              ),
-        _card("Hospital", 'Medicine', 4,
-              points=50, reward=30),
-        _card("Medical center", 'Medicine', 5,
-              points=60, reward=35,
-              vacancy=_vacancy('Главврач', 70),
-              feature=_feat('basic_income', +10),
-              ),
-        # Prompt:
-        # Scientific medical conference in a luxurious hotel with a lot of people and a speeker on a tribune
-        _card("Симпозиум", 'Medicine', 6,
-              points=60, reward=40,
-              repeatable=True),
-
-        # Entertainment: random gift +
-        _card("Playground", 'Entertainment', 1,
-              points=10, reward=15,
-              vacancy=_vacancy('Аниматор', 10),
-              feature=_feat('random_gift', +10),
-              ),
-        _card("Amusement park", 'Entertainment', 2,
-              points=25, reward=25),
-        _card("Cinema", 'Entertainment', 3,
-              points=40, reward=35,
-              vacancy=_vacancy('Администратор', 30),
-              feature=_feat('random_gift', +15),
-              ),
-        _card("City park", 'Entertainment', 4,
-              points=55, reward=40),
-        _card("Recreational complex", 'Entertainment', 5,
-              points=70, reward=50,
-              vacancy=_vacancy('Гуру', 65),
-              feature=_feat('random_gift', +25),
-              ),
-        # Prompt:
-        # Massive crowdy final of world wide football championship on a huge stadium
-        _card("Чемпионат мира", 'Entertainment', 6,
-              points=60, reward=50,
-              repeatable=True),
-
-        # Finance: random commission +
-        _card("Pawnshop", 'Finance', 1,
-              points=10, reward=20,
-              vacancy=_vacancy('Ростовщик', 15),
-              feature=_feat('random_gift', -10),
-              ),
-        _card("Micro-credit", 'Finance', 2,
-              points=20, reward=35),
-        _card("Bank", 'Finance', 3,
-              points=30, reward=50,
-              vacancy=_vacancy('Банкир', 40),
-              feature=_feat('random_gift', -15),
-              ),
-        _card("Exchange", 'Finance', 4,
-              points=40, reward=60),
-        _card("Ministry of finance", 'Finance', 5,
-              points=50, reward=75,
-              vacancy=_vacancy('Финансист', 80),
-              feature=_feat('random_gift', -25),
-              ),
-        # Prompt:
-        # A hectic day of trading at the stock exchange with several clerks holding papers in their hands
-        _card("Торги", 'Entertainment', 6,
-              points=60, reward=40,
-              repeatable=True),
+        _card('Лагерь', 'production', 1, jobs=[_job("Охотник", basic_deal)]),
+        _card('Причал', 'production', 1, jobs=[_job("Рыбак", basic_deal)]),
+        _card('Шахта', 'production', 1, jobs=[_job("Шахтёр", basic_deal)]),
+        _card('Хижина', 'production', 1, jobs=[_job("Егерь", basic_deal)]),
+        _card('Кузница', 'production', 1, jobs=[_job("Кузнец", basic_deal)]),
+        _card('Пекарня', 'production', 1, jobs=[_job("Пекарь", basic_deal)]),
+        _card('Дровня', 'production', 1, jobs=[_job("Дровосек", basic_deal)]),
+        _card('Мастерская', 'production', 1, jobs=[_job("Гончар", basic_deal)]),
     ]
 
-    families = list(set([card["family"] for card in cards]))
-    deck_card_families = random.sample(families, families_num)
+    return random.sample(cards, min([n, 8]))
 
-    return [card for card in cards if card["family"] in deck_card_families]
+
+def build_deck():
+    # todo сделать временные работы отдельным полем - с этим проще взаимодействовать
+    cards = [
+        _card("Уличный театр", 'culture', 1,
+              jobs=[
+                  _job('Актёр', _deal(purse(coin(5)), purse(coin(1, CLT)))),
+              ],
+              project_jobs=[
+                  _job('Прораб', _deal(purse(coin(5)), purse(coin(10)))),
+                  _job('Строитель', _deal(purse(coin(5)), purse(coin(1, CLT))))
+              ]),
+        _card("Библиотека", 'science', 1,
+              jobs=[
+                  _job('Библиотекарь', _deal(purse(coin(5)), purse(coin(1, SCN)))),
+              ],
+              project_jobs=[
+                  _job('Прораб', _deal(purse(coin(5)), purse(coin(10)))),
+                  _job('Строитель', _deal(purse(coin(5)), purse(coin(1, SCN)))),
+              ]),
+        _card("Алтарь", 'religion', 1,
+              jobs=[
+                  _job('Служка', _deal(purse(coin(5)), purse(coin(1, RLG)))),
+              ],
+              project_jobs=[
+                  _job('Прораб', _deal(purse(coin(5)), purse(coin(10)))),
+                  _job('Строитель', _deal(purse(coin(5)), purse(coin(1, RLG)))),
+              ]),
+        _card("Ломбард", 'finance', 1,
+              jobs=[
+                  _job('Ростовщик', _deal(purse(coin(5)), purse(coin(1, PPR)))),
+              ],
+              project_jobs=[
+                  _job('Прораб', _deal(purse(coin(5)), purse(coin(10)))),
+                  _job('Строитель', _deal(purse(coin(5)), purse(coin(1, PPR)))),
+              ]
+              )
+    ]
+
+    return cards
+
+
+"""
+_card("Theatre", 'Culture', 2,
+      points=20, reward=25),
+_card("Philarmony", 'Culture', 3,
+      points=30, reward=30,
+      vacancy=_vacancy('Маэстро', 25),
+      feature=_feat('clerks_salary', -5),
+      ),
+_card("Opera", 'Culture', 4,
+      points=40, reward=35),
+_card("Cultural center", 'Culture', 5,
+      points=50, reward=40,
+      vacancy=_vacancy('Поп-идол', 90),
+      feature=_feat('clerks_salary', -10),
+      ),
+# Prompt:
+# A celebration of fun holiday with a lot of live music and people on the streets
+# in the center of the city, which looks like from noir movies
+_card("Фестиваль", 'Culture', 6,
+      points=60, reward=35,
+      repeatable=True),
+
+# Transport: decrease card cost +
+_card("Rickshaw", 'Transport', 1,
+      points=10, reward=10,
+      vacancy=_vacancy('Извозчик', 10),
+      feature=_feat('cards_cost', -3)
+      ),
+_card("Bike rental network", 'Transport', 2,
+      points=25, reward=25
+      ),
+_card("Taxi station", 'Transport', 3,
+      points=40, reward=35,
+      vacancy=_vacancy('Логист', 40),
+      feature=_feat('cards_cost', -5)
+      ),
+_card("Railway station", 'Transport', 4,
+      points=55, reward=50
+      ),
+_card("Airport", 'Transport', 5,
+      points=70, reward=65,
+      vacancy=_vacancy('Министр транспорта', 75),
+      feature=_feat('cards_cost', -10)
+      ),
+# Prompt:
+# Massive ceremonial event for the opening of new international airlines at the airport
+_card("Запуск авиамаршрута", 'Transport', 6,
+      points=60, reward=50,
+      repeatable=True),
+
+#  Shopping: increase cards cost -
+_card("Tent", 'Shopping', 1,
+      points=10, reward=20,
+      vacancy=_vacancy('Лавочник', 15),
+      feature=_feat('cards_cost', +3)
+      ),
+_card("Trailer", 'Shopping', 2,
+      points=20, reward=30
+      ),
+_card("Shop", 'Shopping', 3,
+      points=30, reward=40,
+      vacancy=_vacancy('Торговец', 35),
+      feature=_feat('cards_cost', +5)
+      ),
+_card("Market", 'Shopping', 4,
+      points=40, reward=55
+      ),
+_card("Shopping center", 'Shopping', 5,
+      points=50, reward=70,
+      vacancy=_vacancy('Капиталист', 75),
+      feature=_feat('cards_cost', +10)
+      ),
+# Prompt:
+# Shopping event like Black Friday with a lot of people and shiny showcases around
+_card("Черная пятница", 'Shopping', 6,
+      points=60, reward=45,
+      repeatable=True),
+
+#  Education: increase cards reward +
+_card("Kindergarten", 'Education', 1,
+      points=10, reward=10,
+      vacancy=_vacancy('Воспитатель', 5),
+      feature=_feat('cards_reward', +3),
+      ),
+_card("School", 'Education', 2,
+      points=25, reward=15
+      ),
+_card("College", 'Education', 3,
+      points=40, reward=20,
+      vacancy=_vacancy('Профессор', 30),
+      feature=_feat('cards_reward', +5),
+      ),
+_card("University", 'Education', 4,
+      points=50, reward=30),
+_card("Academy", 'Education', 5,
+      points=60, reward=40,
+      vacancy=_vacancy('Академик', 70),
+      feature=_feat('cards_reward', +10),
+      ),
+# Prompt:
+# Scientific lection in a physical laboratory with a lector and few listeners
+_card("Конференция", 'Education', 6,
+      points=60, reward=40,
+      repeatable=True),
+
+# Religion: decrease cards reward -
+_card("Altar", 'Religion', 1,
+      points=10, reward=15,
+      vacancy=_vacancy('Служка', 5),
+      feature=_feat('cards_reward', -3),
+      ),
+_card("Chapel", 'Religion', 2,
+      points=20, reward=25
+      ),
+_card("Church", 'Religion', 3,
+      points=30, reward=30,
+      vacancy=_vacancy('Священник', 20),
+      feature=_feat('cards_reward', -5)
+      ),
+_card("Temple", 'Religion', 4,
+      points=40, reward=40
+      ),
+_card("Cathedral", 'Religion', 5,
+      points=50, reward=50,
+      vacancy=_vacancy('Кадринал', 80),
+      feature=_feat('cards_reward', -10)
+      ),
+# Prompt:
+# Mysterious religious ritual with a lot of people in the center of the city, which looks like from noir movies
+_card("Обряд", 'Religion', 6,
+      points=60, reward=45,
+      repeatable=True),
+
+# Government: increase salary +
+_card("Rented office", 'Government', 1,
+      points=15, reward=10,
+      vacancy=_vacancy('Зам зама', 3),
+      feature=_feat('clerks_salary', +3),
+      ),
+_card("Administration", 'Government', 2,
+      points=25, reward=15
+      ),
+_card("City hall", 'Government', 3,
+      points=35, reward=20,
+      vacancy=_vacancy('Депутат', 25),
+      feature=_feat('clerks_salary', +5),
+      ),
+_card("Parliament", 'Government', 4,
+      points=45, reward=30
+      ),
+_card("Government house", 'Government', 5,
+      points=55, reward=45,
+      vacancy=_vacancy('Сенатор', 85),
+      feature=_feat('clerks_salary', +10)
+      ),
+# Prompt:
+# An official political debates between several people in a TV studio in a noir like movie style
+_card("Дебаты", 'Government', 6,
+      points=60, reward=40,
+      repeatable=True),
+
+# Food: basic income ++
+_card("Hot dog trailer", 'Food', 1,
+      points=20, reward=10,
+      vacancy=_vacancy('Официант', 10),
+      feature=_feat('basic_income', +5),
+      ),
+_card("Bakery", 'Food', 2,
+      points=30, reward=15),
+_card("Canteen", 'Food', 3,
+      points=45, reward=20,
+      vacancy=_vacancy('Шеф-повар', 25),
+      feature=_feat('basic_income', +10),
+      ),
+_card("Restaurant", 'Food', 4,
+      points=60, reward=30),
+_card("Hotel", 'Food', 5,
+      points=70, reward=40,
+      vacancy=_vacancy('Метродотель', 70),
+      feature=_feat('basic_income', +15),
+      ),
+# Prompt:
+# Great food festival with a lot of people and dishes around on the streets in the center of the city
+_card("Ярмарка", 'Food', 6,
+      points=60, reward=30,
+      repeatable=True),
+
+# Medicine: basic income +
+_card("Emergency room", 'Medicine', 1,
+      points=15, reward=15,
+      vacancy=_vacancy('Медбрат', 10),
+      feature=_feat('basic_income', +3),
+      ),
+_card("Local clinic", 'Medicine', 2,
+      points=25, reward=20),
+_card("City polyclinic", 'Medicine', 3,
+      points=40, reward=25,
+      vacancy=_vacancy('Фельдшер', 25),
+      feature=_feat('basic_income', +5),
+      ),
+_card("Hospital", 'Medicine', 4,
+      points=50, reward=30),
+_card("Medical center", 'Medicine', 5,
+      points=60, reward=35,
+      vacancy=_vacancy('Главврач', 70),
+      feature=_feat('basic_income', +10),
+      ),
+# Prompt:
+# Scientific medical conference in a luxurious hotel with a lot of people and a speeker on a tribune
+_card("Симпозиум", 'Medicine', 6,
+      points=60, reward=40,
+      repeatable=True),
+
+# Entertainment: random gift +
+_card("Playground", 'Entertainment', 1,
+      points=10, reward=15,
+      vacancy=_vacancy('Аниматор', 10),
+      feature=_feat('random_gift', +10),
+      ),
+_card("Amusement park", 'Entertainment', 2,
+      points=25, reward=25),
+_card("Cinema", 'Entertainment', 3,
+      points=40, reward=35,
+      vacancy=_vacancy('Администратор', 30),
+      feature=_feat('random_gift', +15),
+      ),
+_card("City park", 'Entertainment', 4,
+      points=55, reward=40),
+_card("Recreational complex", 'Entertainment', 5,
+      points=70, reward=50,
+      vacancy=_vacancy('Гуру', 65),
+      feature=_feat('random_gift', +25),
+      ),
+# Prompt:
+# Massive crowdy final of world wide football championship on a huge stadium
+_card("Чемпионат мира", 'Entertainment', 6,
+      points=60, reward=50,
+      repeatable=True),
+
+# Finance: random commission +
+_card("Pawnshop", 'Finance', 1,
+      points=10, reward=20,
+      vacancy=_vacancy('Ростовщик', 15),
+      feature=_feat('random_gift', -10),
+      ),
+_card("Micro-credit", 'Finance', 2,
+      points=20, reward=35),
+_card("Bank", 'Finance', 3,
+      points=30, reward=50,
+      vacancy=_vacancy('Банкир', 40),
+      feature=_feat('random_gift', -15),
+      ),
+_card("Exchange", 'Finance', 4,
+      points=40, reward=60),
+_card("Ministry of finance", 'Finance', 5,
+      points=50, reward=75,
+      vacancy=_vacancy('Финансист', 80),
+      feature=_feat('random_gift', -25),
+      ),
+# Prompt:
+# A hectic day of trading at the stock exchange with several clerks holding papers in their hands
+_card("Торги", 'Entertainment', 6,
+      points=60, reward=40,
+      repeatable=True),
+"""

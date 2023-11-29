@@ -14,6 +14,7 @@
         integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA=="
         crossorigin="anonymous"></script>
 
+    <!-- https://colorscheme.ru/#5642nw0w0w0w0 -->
     <style>
         .font-bigger {
             font-size: 1.5rem;
@@ -25,6 +26,7 @@
             display: inline-block;
             margin-left: 5px;
             text-align: center;
+            background-color: #ccc
         }
 
         .card-active {
@@ -48,16 +50,6 @@
             background-color: lavender;
         }
 
-        .card-effect {}
-
-        .card-effect-success {
-            background-color: #7FFF00;
-        }
-
-        .card-effect-failure {
-            background-color: #DC143C;
-            color: #fff;
-        }
 
         .portrait {
             background: #FFEBCD;
@@ -238,30 +230,6 @@
                                 <input v-model="gameConfig.rounds" />
                             </label>
                         </div>
-                        <div>
-                            <label>Initial player points
-                                <input v-model="gameConfig.initialPlayerPoints" />
-                            </label>
-                        </div>
-                        <h4>Card effect visibility</h4>
-                        <div>
-                            <p>On success effect</p>
-                            <label>Leader
-                                <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onSuccess.leader" />
-                            </label>
-                            <label>Players
-                                <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onSuccess.players" />
-                            </label>
-                        </div>
-                        <div>
-                            <p>On failure effect</p>
-                            <label>Leader
-                                <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onFailure.leader" />
-                            </label>
-                            <label>PLayers
-                                <input type="checkbox" v-model="gameConfig.cardEffectVisibility.onFailure.players" />
-                            </label>
-                        </div>
                     </details>
                 </div>
             </div>
@@ -272,26 +240,14 @@
                 <div class="row mb-3">
                     <div class="col">
                          <h5>
-                             <span>Счет: <points-badge :points="game.all_players_points && game.all_players_points[playerName]" /></span>
-                             <span class="ms-3">
-                                <span v-for="effect in playerEffectsToApply">
-                                    <span v-if="effect.name == 'change_player_points'">
-                                        <points-badge :prolonged="true" :points="effect.payload.points" :signed="true" :duration="effect.payload.rounds_to_apply"/></span>
-                                    </span>
-                                </span>
-                             </span>
+                             ${ playerPurse }$
+<!--                             <span>Счет: <money-coin :coin="coin" v-for="for curr in playerPurse"/></span>-->
                          </h5>
-
-                         <div class="bg-light p-4">
-                             <p class="lead">Мое задание: <span :class="{'text-success fw-bold': mission?.is_complete}">${ formatMissionDescription(mission)[0] }$</span></p>
-                             <p> ${ formatMissionDescription(mission)[1] }$. Награда <points-badge :points="mission?.reward" :signed="true"/> </p>
-                         </div>
 
                          <p>
                             <span>Раунд <i class="bi-hourglass-split"></i> ${ game.round }$ / ${ game.rounds }$</span>
-                            <span v-if="roundStage === 0">, мэр выбирает проект </span>
-                            <span v-if="roundStage === 1">, мэр выбирает команду </span>
-                            <span v-if="roundStage === 2 && (!isPlayerProjectParticipant() || !isActivePlayer())">, ждем результатов строительства</span>
+                            <span v-if="roundStage === 0">, мэр выбирает задание </span>
+                            <span v-if="roundStage === 1">, игроки выбирают задания  </span>
                         </p>
                     </div>
                 </div>
@@ -302,138 +258,77 @@
                          v-for="pl in room.players">
                         <div class="portrait border p-2 rounded-4 mb-2"
                              :style="{'background-image': 'url(/static/portrait' + (portraitIds[pl.name] || 0) + '.jpg)'}"
-                             :class="{'active border-info border-5': game.active_player == pl.name, 'border-secondary-subtle': game.active_player != pl.name, 'shadow': projectTeamMembersSelection[pl.name]}">
+                             :class="{'active border-info border-5': game.active_player == pl.name, 'border-secondary-subtle': game.active_player != pl.name}">
 
-                            <div>
-                                <p>
-                                    <input type="checkbox"
-                                       style="width: 25px; height: 25px;"
-                                       :disabled="(selectedProjectTeamMembers.length >= projectTeamMaxMembers && !selectedProjectTeamMembers.includes(pl.name))"
-                                       v-model="projectTeamMembersSelection[pl.name]"
-                                       v-if="isLeader() && roundStage === 1 && game.leader !== pl.name">
-                                    <span class="p-1">
-                                        <strong>
-                                            ${ pl.name }$
-                                        </strong>
-                                    </span>
-
-                                    <span class="p-1 m-1 text-white bg-primary" v-if="pl.name == game.leader">мэр</span>
-                                    <span class="p-1 m-1 text-white bg-success" v-if="game.team && game.team.includes(pl.name)">команда</span>
-                                </p>
-                            </div>
-                        </div>
-                        <div v-for="vcn in playerVacancies(pl.name)">
-                            <vacancy-badge :name="vcn.name" :salary="applyFeature('clerks_salary', vcn.income)"/>
+                             <span class="p-1 bg-light">
+                                <strong>${ pl.name }$</strong>
+                             </span>
+                             <span class="p-1 m-1 text-white bg-primary" v-if="pl.name == game.leader">мэр</span>
                         </div>
                     </div>
-
-                    <div v-if="isLeader() && roundStage === 1">
-                        <div class="row mt-3">
-                            <div class="col">
-                                <button type="button"
-                                        class="btn btn-primary"
-                                        :disabled="projectTeamHasMinMembers"
-                                        @click="submitProjectTeamSelection()">Подтвердить выбор команды</button>
-                            </div>
-                        </div>
-                    </div>
-
                 </div>
 
                 <!-- Cards -->
-                <div class="row justify-content-sm-center bg-gradient py-4">
+                <div class="row bg-gradient py-4">
                     <div class="col">
-                        <div v-if="roundStage === 0 && game.cards_on_table && game.cards_on_table.length > 0">
-                            <div v-if="isLeader()">
-                                <div class="row">
-                                    <div class="col">
-                                        <table-card @click="selectedCardId = card.card_id"
-                                            :card="card"
-                                            :vacancies="currentVacancies"
-                                            class="border-4"
-                                            :class="{'shadow-lg border-info': selectedCardId && (selectedCardId === card.card_id), 'border-white': !(selectedCardId && (selectedCardId === card.card_id))}"
-                                            v-for="card in game.cards_on_table"
-                                            :key="card.card_id"
-                                            :active-features="activeCardFeatures"
-                                            :effects-visibility="game.card_effect_visibility"
-                                            :is-leader="isLeader()" />
-
-                                    </div>
-                                </div>
-
-                                <div class="row mt-3">
-                                    <div class="col">
-                                        <button type="button"
-                                                class="btn btn-primary"
-                                                @click="submitCardsSelection()"
-                                                :disabled="!selectedCardId">Подтвердить выбор проекта</button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div v-if="!isLeader()">
-                                <div class="row">
-                                    <div class="col">
-                                        <table-card :card="card"
-                                                    class="border-4 border-white"
-                                                    :vacancies="currentVacancies"
-                                                    v-for="card in game.cards_on_table"
-                                                    :key="card.card_id"
-                                                    :active-features="activeCardFeatures"
-                                                    :effects-visibility="game.card_effect_visibility"
-                                                    :is-leader="isLeader()"/>
-                                    </div>
-                                </div>
-
-                            </div>
-                        </div>
-
-                        <div v-if="roundStage > 0">
+                        <div v-if="game.round_cards_draw && game.round_cards_draw.length > 0">
                             <div class="row">
                                 <div class="col">
                                     <table-card :card="card"
-                                                class="border-4 border-white"
-                                                v-for="card in game.cards_selected_by_leader"
-                                                :vacancies="currentVacancies"
-                                                :key="card.card_id"
-                                                :active-features="activeCardFeatures"
-                                                :effects-visibility="game.card_effect_visibility"
-                                                :is-leader="isLeader()"/>
+                                            class="border-5"
+                                            :class="{'border-info': selectedCardId == card.name, 'border-white': selectedCardId != card.name}"
+                                            v-for="card in game.round_cards_draw"
+                                            :cover-only="roundStage == 0 && !isLeader()"
+                                            @click="(roundStage == 0 && isLeader()) && selectCardId(card.name)"
+                                            :key="card.name"
+                                            v-show="roundStage == 0 || game.selected_house.name == card.name"
+                                            :show-tmp-jobs="roundStage == 0"
+                                            />
+
                                 </div>
                             </div>
 
-                        </div>
-
-                    </div>
-                </div>
-
-                <!-- Current state notification -->
-                <div class="row justify-content-sm-center py-3">
-                    <div class="col">
-                        <div v-if="roundStage === 2 && isPlayerProjectParticipant() && isActivePlayer()">
-                            <label>Выберите, сколько вложить в проект: ${ playerProjectBid }$</label>
-                            <div class="my-4">
-                                <input type="range"
-                                       style="min-width: 300px;"
-                                       v-model="playerProjectBid"
-                                       min="0"
-                                       :max="game.all_players_points[playerName]" />
-                            </div>
-                            <div class="row mt-3">
+                            <div class="row mt-3" v-if="roundStage == 0 && isLeader()">
                                 <div class="col">
                                     <button type="button"
+                                            :disabled="!selectedCardId"
                                             class="btn btn-primary"
-                                            @click="makeProjectDeposit(playerProjectBid)">Подтвердить</button>
+                                            @click="submitHouseCardSelection()">Подтвердить выбор</button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="row py-3" v-if="succeedCards.length > 0">
-                    <h5>Построены</h5>
-                    <div v-for="(card, family) in succeedCardsByFamilies" class="mb-2">
-                        <div><span class="me-2">${ family }$ ${ card.tier }$ - ${ card.name }$</span><feature-badge :feature="card.feature" /></div>
+                <!-- JOBS -->
+                <div class="row py-4">
+                    <div class="col-2 text-center"
+                         style="background-color: #ffa"
+                         v-if="game.selected_house"
+                         v-for="job in game.selected_house.project_jobs">
+                        <job-slot :job="job"
+                                  :assignee="game.job_assignment[job.name]"
+                                  class="py-3 border border-3"
+                                  :class="{'border-info': selectedJobId == job.name, 'border-success border-opacity-75': canBeAssigned(job)}"
+                                  @click="canBeAssigned(job) && selectJobId(job.name)"/>
+                    </div>
+                    <div class="col-2 text-center" v-for="house in game.houses">
+                        <job-slot :job="job"
+                                  class="py-3 border border-3"
+                                  :assignee="game.job_assignment[job.name]"
+                                  v-for="job in house.jobs"
+                                  :class="{'border-info': selectedJobId == job.name, 'border-success border-opacity-75': canBeAssigned(job)}"
+                                  @click="canBeAssigned(job) && selectJobId(job.name)"/>
+                    </div>
+
+                </div>
+<!--                объединения работ в постройки-->
+<!--                доделать выбор работ-->
+                <div class="row mt-3" v-if="roundStage == 1 && selectedJobId">
+                    <div class="col">
+                        <button type="button"
+                                class="btn btn-primary"
+                                @click="submitJobSelection()">Подтвердить выбор</button>
                     </div>
                 </div>
 
@@ -443,80 +338,70 @@
 
     <template id="TableCard">
         <div class="card shadow-sm me-3 mb-3 border-4">
-            <div :style="{'background-image': 'url(/static/card/' + card.family.toLowerCase() + '_' + card.tier+ '.jpg)'}"
-                 style="background-size: cover; min-height: 300px;"
+            <div :style="{'background-image': 'url(/static/card/' + (coverOnly ? 'transport_6.jpg' : (card.family.toLowerCase() + '_' + card.tier + '.jpg)'))}"
                  class="py-4">
-                <div class="row mb-2">
-                    <div class="col text-start mx-2">
-                        <points-badge style="font-size: 1.4rem" :points="applyFeature('cards_cost', card.points_to_succeed)"/>
-                    </div>
-
-                    <div class="col text-end mx-2 font-bigger" >
+                <div v-if="!coverOnly">
+                    <span class="bg-light px-2 py-1 rounded-pill text-dark"><small><span class="badge text-dark" :style="{'background-color': familyColors[card.family]}">${ card.family }$</span> ${ card.card_type }$ ${ card.tier }$ </small></span>
+                    <h4 class="mt-1">
                         <span class="bg-light px-2 py-1 rounded-pill text-dark">
-                            <span><i class="bi-person-fill-add me-2"></i></span>
-                            <span v-if="card.min_team != card.max_team">${ card.min_team }$ - ${ card.max_team }$</span>
-                            <span v-else>${ card.min_team }$</span>
+                            ${ card.name }$
                         </span>
-                    </div>
-                </div>
-                <span class="bg-light px-2 py-1 rounded-pill text-dark"><small>${ card.family }$ ${ tiers[card.tier] }$</small></span>
-                <h4>
-                    <span class="bg-light px-2 py-1 rounded-pill text-dark">
-                        ${ card.name }$
-                    </span>
-                </h4>
-            </div>
+                    </h4>
 
-            <div v-for="condition in ['on_success', 'on_failure']"
-                 class="card-effect py-3 bg-gradient"
-                 :set="effects = card[condition]"
-                 :class="{'card-effect-success': condition == 'on_success', 'card-effect-failure': condition == 'on_failure'}">
-
-                <div v-if="!isConditionEffectsVisible(condition)">
-                    Эффект скрыт
-                </div>
-
-                <div v-if="isConditionEffectsVisible(condition)">
-                    <div v-for="effect in effects" class="mb-3">
-                        <div v-if="effect.name">
-                            <div v-if="effect.name == 'change_player_points'">
-                                <div>
-                                    ${ buildCategoriesDescription(effect.payload.categories_of_players) }$ получает <points-badge :prolonged="effect.payload.rounds_to_apply > 1" :signed="true" :points="applyFeature('cards_reward', effect.payload.points)" :duration="effect.payload.rounds_to_apply"/>
-                                </div>
-                            </div>
-                            <div v-if="effect.name == 'give_overpayment'">
-                                <div>
-                                    ${ buildCategoriesDescription(effect.payload.categories_of_players) }$ получает переплату
-                                </div>
-                            </div>
-                            <div v-if="effect.name == 'cancel_effects'">
-                                <div>
-                                    Отменяет ${ {'all_effects': 'все', 'positive_effects': 'положительные', 'negative_effects': 'отрицательные'}[effect.payload.cancel] }$ эффекты у ${ buildCategoriesDescription(effect.payload.categories_of_players) }$
-                                </div>
-                            </div>
+                    <div v-if="card.jobs && card.jobs.length > 0" class="my-4">
+                        <div class="row">
+                            <job-slot :job="job"
+                                      v-for="(job, idx) in card.jobs"
+                                      class="p-2 col"
+                                      />
+                        </div>
+                        <div class="row">
+                            <job-slot :job="job"
+                                      v-for="(job, idx) in card.project_jobs"
+                                      class="p-2 col-6"
+                                      v-show="showTmpJobs"
+                                      />
                         </div>
                     </div>
-                </div>
-
-
-                <div v-if="condition == 'on_success'">
-                    <div v-if="vacancy" class="mb-1">
-                        <vacancy-badge :name="vacancy.name"
-                                       :salary="applyFeature('clerks_salary', vacancy.income)"/>
-                    </div>
-
-                    <div v-if="feature" class="mb-1">
-                        <feature-badge :feature="feature" />
-                    </div>
-                </div>
-                <div v-if="condition == 'on_failure' && !vacancy && vacancies[card.family]">
-                    Выборы <vacancy-badge :name="vacancies[card.family].name"
-                                                  :salary="applyFeature('clerks_salary', vacancies[card.family].income)"/>
                 </div>
             </div>
         </div>
     </template>
 
+    <template id="JobSlot">
+        <div>
+            <span class="rounded-pill px-2 py-1 bg-primary text-white"
+                  :class="{'bg-secondary': assignee, 'bg-primary': !assignee}">
+                ${ job.name }$
+            </span>
+            <div class="mt-2">
+                <deal-slot class="bg-primary rounded-pill" :deal="job.deal"/>
+            </div>
+            <div v-if="assignee" class="mt-2">Занято <strong>${ assignee }$</strong></div>
+        </div>
+    </template>
+
+    <template id="DealSlot">
+        <span class="p-2">
+            <span v-if="deal[0]" v-for="(coin, curr) in deal[0]" class="me-2 text-white">
+                <strong v-if="coin.amount" class="me-1">-</strong>
+                <money-coin :coin="coin" :signed="true"/>
+            </span>
+
+            <span v-if="deal[1]" v-for="(coin, curr) in deal[1]" class="text-white">
+                <strong v-if="coin.amount" class="me-1">+</strong>
+                <money-coin :coin="coin" :signed="true"/>
+            </span>
+        </span>
+    </template>
+
+    <template id="MoneyCoin">
+        <span class="badge px-2 text-dark"
+              :style="{'background-color': colors[coin.currency] }"
+              v-if="coin.amount != 0">
+            <strong>${ coin.amount }$</strong>
+        </span>
+    </template>
 
     <script type="text/javascript" charset="utf-8">
         const { createApp, ref } = Vue
@@ -530,29 +415,18 @@
                     showPortraitOptions: ref(false),
                     debug: ref(false),
                     selectedCardId: ref(null),
-                    playerProjectBid: ref(0),
+                    selectedJobId: ref(null),
                     projectTeamMembersSelection: ref({}),
                     playerName: '{{ player_name }}',
                     roomId: '{{ room_id }}',
 
-                    config: {},
+                    config: ref({}),
                     showRoundResults: ref(false),
                     roundResults: ref(null),
                     finalRating: ref(null),
                     showFinalResults: ref(false),
                     gameConfig: ref({
-                        rounds: 15,
-                        initialPlayerPoints: 30,
-                        cardEffectVisibility: {
-                            'onSuccess': {
-                                'leader': true,
-                                'players': true
-                            },
-                            'onFailure': {
-                                'leader': true,
-                                'players': true
-                            }
-                        }
+                        rounds: 15
                     }),
                 }
             },
@@ -587,12 +461,12 @@
                         return 2
                     }
 
-                    // team selection
-                    if (this.game.cards_selected_by_leader && this.game.cards_selected_by_leader.length > 0) {
+                    // house card is selected, time to assign jobs
+                    if (this.game.selected_house) {
                         return 1
                     }
 
-                    // card selection
+                    // leader see card and have to select
                     return 0
                 },
                 projectTeamMaxMembers() {
@@ -651,9 +525,29 @@
                 },
                 mission() {
                     return this.game.missions?.find(m => m.player == this.player.name)
+                },
+                playerPurse() {
+                    return (this.game && this.game.players && this.game.players[this.playerName].purse) || {}
+                },
+                playerAssignedAlready() {
+                    return Object.values(this.game.job_assignment).includes(this.playerName)
                 }
             },
             methods: {
+                comparePurses(p1, p2) {
+                    let diff = 0;
+                    for (const curr in p1) {
+                        if (!p2.hasOwnProperty(curr)) {
+                            continue;
+                        }
+                        const coinDiff = p1[curr].amount - p2[curr].amount;
+                        if (coinDiff < 0) {
+                            return -1;
+                        }
+                        diff += coinDiff;
+                    }
+                    return diff === 0 ? 0 : 1;
+                },
                 selectPortrait(id) {
                     socket.emit('select_player_portrait', {
                         "portrait_id": id,
@@ -661,14 +555,23 @@
                         "player_name": this.playerName
                     });
                 },
-                getActiveFeature(name) {
-                    return Object.values(this.game.features || {}).find(ft => ft.type === name) || null
+                selectCardId(name) {
+                    this.selectedCardId = name;
                 },
-                applyFeature(name, value) {
-                    return value + (this.getActiveFeature(name)?.magnitude || 0)
+                hasEnoughMoney(purse, price) {
+                    return this.comparePurses(purse, price) >= 0
                 },
-                isPlayerProjectParticipant() {
-                    return this.roundStage === 2 && this.game.team.includes(this.playerName);
+                canBeAssigned(job) {
+                    let isAlreadyAssigned = Boolean(this.game.job_assignment[job.name]);
+
+                    console.log(this.roundStage, this.isActivePlayer(), isAlreadyAssigned, this.hasEnoughMoney(this.playerPurse, job.deal))
+                    return this.roundStage == 1
+                        && this.isActivePlayer()
+                        && !isAlreadyAssigned
+                        && this.hasEnoughMoney(this.playerPurse, job.deal)
+                },
+                selectJobId(name) {
+                    this.selectedJobId = name;
                 },
                 isActivePlayer() {
                     return this.playerName === this.game.active_player
@@ -679,9 +582,7 @@
                 startGame() {
                     socket.emit('start_game', {
                         "room_id": this.roomId,
-                        "rounds": this.gameConfig.rounds,
-                        "initial_player_points": this.gameConfig.initialPlayerPoints,
-                        "card_effect_visibility": this.gameConfig.cardEffectVisibility
+                        "rounds": this.gameConfig.rounds
                     });
                 },
                 makeProjectDeposit(points) {
@@ -693,13 +594,22 @@
                     socket.emit('make_project_deposit', payload)
                     this.playerProjectBid = 0;
                 },
-                submitCardsSelection() {
+                submitHouseCardSelection() {
                     let payload = {
                         "room_id": this.roomId,
-                        "selected_card_id": this.selectedCardId,
+                        "selected_card_name": this.selectedCardId,
                     }
-                    socket.emit('select_cards_from_table', payload)
+                    socket.emit('select_house_card', payload)
                     this.selectedCardId = null;
+                },
+                submitJobSelection() {
+                    let payload = {
+                        "room_id": this.roomId,
+                        "selected_job": this.selectedJobId,
+                        "player_name": this.playerName,
+                    }
+                    socket.emit('select_job', payload)
+                    this.selectedJobId = null;
                 },
                 submitProjectTeamSelection() {
                     let payload = {
@@ -708,11 +618,6 @@
                     }
                     socket.emit('select_team_for_round', payload)
                     this.projectTeamMembersSelection = {};
-                },
-                playerVacancies(plName) {
-                    return Object.values(this.game.vacancies)
-                        .filter(v => v.assignee === plName)
-                        .map(v => v.vacancy);
                 },
                 formatMissionDescription(mission) {
                     if (!mission) {
@@ -770,10 +675,13 @@
                     'player_points_changed': function(arg) {
                         vm.room = arg;
                     },
-                    'cards_for_round_selected': function(arg) {
+                    'job_selected': function(arg) {
                         vm.room = arg;
                     },
-                    'team_for_round_selected': function(arg) {
+                    'house_card_selected': function(arg) {
+                        vm.room = arg;
+                    },
+                    'round_done': function(arg) {
                         vm.room = arg;
                     },
                     'round_result': function(arg) {
@@ -799,10 +707,39 @@
                 }
             },
         });
-        app.component('TableCard', {
-            props: ['card', 'effectsVisibility', 'isLeader', 'activeFeatures', 'vacancies'],
+        app.component('MoneyCoin', {
+            props: ['coin', 'signed'],
             data() {
                 return {
+                    colors: {
+                        'gld': '#FFF400',
+                        'ppr': '#FF9140',
+                        'clt': '#E266B7',
+                        'scn': '#34CFBE',
+                        'rlg': '#C2F83E'
+                    }
+                }
+            },
+            template: '#MoneyCoin',
+        });
+        app.component('DealSlot', {
+            props: ['deal'],
+            template: '#DealSlot',
+        });
+        app.component('JobSlot', {
+            props: ['job', 'assignee'],
+            template: '#JobSlot',
+        });
+        app.component('TableCard', {
+            props: ['card', 'coverOnly', 'showTmpJobs'],
+            data() {
+                return {
+                    familyColors: {
+                        'finance': '#FF9140',
+                        'culture': '#E266B7',
+                        'science': '#34CFBE',
+                        'religion': '#C2F83E'
+                    },
                     tiers: {
                         1: 'I',
                         2: 'II',
@@ -810,36 +747,6 @@
                         4: 'IV',
                         5: 'V'
                     },
-                }
-            },
-            computed: {
-                vacancy() {
-                    return this.card.vacancy || null
-                },
-                feature() {
-                    return this.card.feature || null
-                }
-            },
-            methods: {
-                applyFeature(name, value) {
-                    return value + (this.activeFeatures[name]?.magnitude || 0)
-                },
-                isConditionEffectsVisible(condition) {
-                    let key = condition == 'on_success' ? 'onSuccess' : 'onFailure';
-                    let group = this.isLeader ? 'leader' : 'players';
-
-                    return this.effectsVisibility[key][group] === true;
-                },
-                buildCategoriesDescription(categories) {
-                    let translates = [
-                        categories.includes('minimal_contributors') ? 'наименее вложивший' : '',
-                        categories.includes('leader') ? 'мэр' : '',
-                        categories.includes('team') ? 'каждый в команде' : '',
-                        categories.includes('all') ? 'каждый игрок' : '',
-                        categories.includes('others') ? 'каждый, кроме лидера и команды' : '',
-                    ].filter(i => Boolean(i)).join(' и ');
-
-                    return translates.charAt(0).toUpperCase() + translates.slice(1)
                 }
             },
             template: '#TableCard',
