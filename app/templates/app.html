@@ -267,6 +267,12 @@
                              </span>
                              <span class="p-1 m-1 text-white bg-primary" v-if="pl.name == game.leader">мэр</span>
                         </div>
+
+                        <div class="mb-2">
+                            <span class="badge bg-info ml-1" v-for="vcn in playerAssignments(pl.name)">
+                                ${ vcn.name }$ <money-coin :coin="vcn.salary" :signed="false"/>
+                            </span>
+                        </div>
                     </div>
                 </div>
 
@@ -501,23 +507,6 @@
 
                     return families
                 },
-                currentVacancies() {
-                    let vacancies = {}
-
-                    this.succeedCards
-                        .filter(card => card.vacancy)
-                        .forEach(card => {
-                            let fam = card.family
-                            if (!(fam in vacancies)) {
-                                vacancies[fam] = card.vacancy
-                            }
-                            if (vacancies[fam].tier < card.tier) {
-                                vacancies[fam] = card.vacancy
-                            }
-                        })
-
-                    return vacancies
-                },
                 activeCardFeatures() {
                     return {
                         'cards_cost': this.getActiveFeature('cards_cost'),
@@ -536,19 +525,12 @@
                 }
             },
             methods: {
-                comparePurses(p1, p2) {
-                    let diff = 0;
-                    for (const curr in p1) {
-                        if (!p2.hasOwnProperty(curr)) {
-                            continue;
-                        }
-                        const coinDiff = p1[curr].amount - p2[curr].amount;
-                        if (coinDiff < 0) {
-                            return -1;
-                        }
-                        diff += coinDiff;
+                playerAssignments(plName) {
+                    if (!this.game.vacancies) {
+                        return [];
                     }
-                    return diff === 0 ? 0 : 1;
+
+                    return Object.values(this.game.vacancies).filter(v => v.assignee === plName);
                 },
                 selectPortrait(id) {
                     socket.emit('select_player_portrait', {
@@ -561,16 +543,22 @@
                     this.selectedCardId = name;
                 },
                 hasEnoughMoney(purse, price) {
-                    return this.comparePurses(purse, price) >= 0
+                    for (const curr in price) {
+                        console.log(purse, price, purse.hasOwnProperty(curr))
+                        if (!purse.hasOwnProperty(curr) || purse[curr].amount < price[curr].amount) {
+                            return false;
+                        }
+                    }
+                    return true
                 },
                 canBeAssigned(job) {
                     let isAlreadyAssigned = Boolean(this.game.job_assignment[job.name]);
 
-                    console.log(this.roundStage, this.isActivePlayer(), isAlreadyAssigned, this.hasEnoughMoney(this.playerPurse, job.deal))
+                    console.log(this.roundStage, this.isActivePlayer(), isAlreadyAssigned, this.hasEnoughMoney(this.playerPurse, job.deal[0]))
                     return this.roundStage == 1
                         && this.isActivePlayer()
                         && !isAlreadyAssigned
-                        && this.hasEnoughMoney(this.playerPurse, job.deal)
+                        && this.hasEnoughMoney(this.playerPurse, job.deal[0])
                 },
                 selectJobId(name) {
                     this.selectedJobId = name;

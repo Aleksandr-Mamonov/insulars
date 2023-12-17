@@ -1,5 +1,4 @@
 import json
-import random
 import uuid
 
 from flask import Flask, url_for, redirect, request, render_template, session
@@ -7,8 +6,13 @@ from flask_socketio import SocketIO, emit, send, join_room, leave_room
 
 from .config import MIN_PLAYERS, MAX_PLAYERS
 from .database import select_one_from_db, select_all_from_db, write_to_db
-from .cards import build_deck, default_houses
-from .money import purse, coin, compare_purses, sum_purses, sub_purses
+from .money import purse, coin, compare_purses, sum_purses, sub_purses, SCN, RLG, PPR, CLT
+from .game import (
+    assign_vacancies,
+    issue_salaries,
+    init as init_game,
+    build_deck
+)
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
@@ -102,28 +106,7 @@ def handle_game_start(data):
 
     players = select_all_from_db("SELECT player_name FROM room_players WHERE room_id=:room_id", {"room_id": room_id})
 
-    player_names = [pl["player_name"] for pl in players]
-    leader = random.choice(player_names)
-
-    game = {
-        "game_id": str(uuid.uuid4()),
-        "round": 0,
-        "players": {pl["player_name"]: {'name': pl["player_name"], "purse": purse(coin(5))} for pl in players},
-        "players_order": player_names,
-        "leader": leader,
-        "rounds": int(data["rounds"]),
-        "houses": [],
-        "round_cards_draw": [],
-        'active_player': leader,
-        'selected_house': None,
-        'job_assignment': {}
-    }
-
-    # выбрать N дефолтных строений по количеству игроков
-    # чтобы обеспечить стартовые работы
-    for house in default_houses(len(players)):
-        game['houses'].append(house)
-
+    game = init_game(players, int(data["rounds"]))
     cards = build_deck()
     _store_deck(cards, game['game_id'])
 
@@ -192,6 +175,7 @@ def handle_select_job(data):
 
 
 def _post_round(game):
+    game = issue_salaries(game)
     for house in game['houses']:
         for job in house['jobs']:
             game, _ = _process_job_deal(game, job)
@@ -201,6 +185,8 @@ def _post_round(game):
     if is_house_built:
         game['houses'].append(house_card)
         # todo deactivate card
+
+    game = assign_vacancies(game)
 
     return game
 
