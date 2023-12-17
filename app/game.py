@@ -147,41 +147,131 @@ def _default_houses(n):
 
 
 def build_deck():
-    cards = [
-        _card("Уличный театр", SEC_CLT, 1,
+    novice_builder_job = _job('Прораб', _deal(purse(coin(5)), purse(coin(10))))
+    advanced_builder_job = _job('Менеджер', _deal(purse(coin(15)), purse(coin(30))))
+    expert_builder_job = _job('Шеф', _deal(purse(coin(50)), purse(coin(100))))
+
+    def novice_mastery_deal(curr):
+        return _deal(purse(coin(5)), purse(coin(1, curr)))
+
+    def advanced_mastery_deal(curr):
+        return _deal(purse(coin(5), coin(1, curr)), purse(coin(3, curr)))
+
+    def expert_mastery_deal(curr, secondary_currencies: list):
+        price_coins = [coin(5)]
+        for secondary_curr in secondary_currencies:
+            price_coins.append(coin(1, secondary_curr))
+
+        return _deal(purse(*price_coins), purse(coin(10), coin(7, curr)))
+
+    cards = list()
+    cards.extend([
+        _card("Балаган", SEC_CLT, 1,
               jobs=[
-                  _job('Актёр', _deal(purse(coin(5)), purse(coin(1, CLT)))),
+                  _job('Мим', novice_mastery_deal(CLT)),
               ],
               project_jobs=[
-                  _job('Прораб', _deal(purse(coin(5)), purse(coin(10)))),
-                  _job('Строитель', _deal(purse(coin(5)), purse(coin(1, CLT))))
+                  novice_builder_job,
+                  _job('Подмастерье', novice_mastery_deal(CLT))
               ]),
+        _card("Варьете", SEC_CLT, 2,
+              jobs=[
+                  _job('Актёр', advanced_mastery_deal(CLT)),
+              ],
+              project_jobs=[
+                  advanced_builder_job,
+                  _job('Подмастерье', advanced_mastery_deal(CLT))
+              ]),
+        _card("Опера", SEC_CLT, 3,
+              jobs=[
+                  _job('Дирижёр', expert_mastery_deal(CLT, [RLG, SCN])),
+              ],
+              project_jobs=[
+                  expert_builder_job,
+                  _job('Подмастерье', expert_mastery_deal(CLT, [RLG, SCN]))
+              ])
+    ])
+
+    cards.extend([
         _card("Библиотека", SEC_SCN, 1,
               jobs=[
-                  _job('Библиотекарь', _deal(purse(coin(5)), purse(coin(1, SCN)))),
+                  _job('Библиотекарь', novice_mastery_deal(SCN)),
               ],
               project_jobs=[
-                  _job('Прораб', _deal(purse(coin(5)), purse(coin(10)))),
-                  _job('Строитель', _deal(purse(coin(5)), purse(coin(1, SCN)))),
+                  novice_builder_job,
+                  _job('Подмастерье', novice_mastery_deal(SCN)),
               ]),
+        _card("Школа", SEC_SCN, 2,
+              jobs=[
+                  _job('Учитель', advanced_mastery_deal(SCN)),
+              ],
+              project_jobs=[
+                  advanced_builder_job,
+                  _job('Подмастерье', advanced_mastery_deal(SCN)),
+              ]),
+        _card("Университет", SEC_SCN, 3,
+              jobs=[
+                  _job('Профессор', expert_mastery_deal(SCN, [CLT, PPR])),
+              ],
+              project_jobs=[
+                  expert_builder_job,
+                  _job('Подмастерье', expert_mastery_deal(SCN, [CLT, PPR])),
+              ]),
+    ])
+
+    cards.extend([
         _card("Алтарь", SEC_RLG, 1,
               jobs=[
-                  _job('Служка', _deal(purse(coin(5)), purse(coin(1, RLG)))),
+                  _job('Служка', novice_mastery_deal(RLG)),
               ],
               project_jobs=[
-                  _job('Прораб', _deal(purse(coin(5)), purse(coin(10)))),
-                  _job('Строитель', _deal(purse(coin(5)), purse(coin(1, RLG)))),
+                  novice_builder_job,
+                  _job('Подмастерье', novice_mastery_deal(RLG)),
               ]),
+        _card("Часовня", SEC_RLG, 2,
+              jobs=[
+                  _job('Священник', advanced_mastery_deal(RLG)),
+              ],
+              project_jobs=[
+                  advanced_builder_job,
+                  _job('Подмастерье', advanced_mastery_deal(RLG)),
+              ]),
+        _card("Храм", SEC_RLG, 3,
+              jobs=[
+                  _job('Епископ', expert_mastery_deal(RLG, [PPR, CLT])),
+              ],
+              project_jobs=[
+                  expert_builder_job,
+                  _job('Подмастерье', expert_mastery_deal(RLG, [PPR, CLT])),
+              ]),
+    ])
+
+    cards.extend([
         _card("Ломбард", SEC_FFN, 1,
               jobs=[
-                  _job('Ростовщик', _deal(purse(coin(5)), purse(coin(1, PPR)))),
+                  _job('Ростовщик', novice_mastery_deal(PPR)),
               ],
               project_jobs=[
-                  _job('Прораб', _deal(purse(coin(5)), purse(coin(10)))),
-                  _job('Строитель', _deal(purse(coin(5)), purse(coin(1, PPR)))),
-              ]
-              )
-    ]
+                  novice_builder_job,
+                  _job('Подмастерье', novice_mastery_deal(PPR)),
+              ]),
+        _card("Банк", SEC_FFN, 2,
+              jobs=[
+                  _job('Банкир', advanced_mastery_deal(PPR)),
+              ],
+              project_jobs=[
+                  advanced_builder_job,
+                  _job('Подмастерье', advanced_mastery_deal(PPR)),
+              ]),
+        _card("Биржа", SEC_FFN, 3,
+              jobs=[
+                  _job('Брокер', expert_mastery_deal(PPR, [RLG, SCN])),
+              ],
+              project_jobs=[
+                  expert_builder_job,
+                  _job('Подмастерье', expert_mastery_deal(PPR, [RLG, SCN])),
+              ]),
+    ])
 
     return cards
 

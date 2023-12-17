@@ -184,7 +184,7 @@ def _post_round(game):
     game, is_house_built = _process_card(game, house_card)
     if is_house_built:
         game['houses'].append(house_card)
-        # todo deactivate card
+        rm_card_from_deck(game['game_id'], house_card['name'])
 
     game = assign_vacancies(game)
 
@@ -244,10 +244,9 @@ def store_game(room_id, game):
 
 
 def rm_card_from_deck(game_id, name):
-    write_to_db("UPDATE game_deck SET available=:available WHERE name=:name AND game_id=:game_id", {
+    write_to_db("UPDATE game_deck SET is_available=FALSE WHERE name=:name AND game_id=:game_id", {
         "name": name,
-        "game_id": game_id,
-        "available": False,
+        "game_id": game_id
     })
 
 
