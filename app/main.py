@@ -1,23 +1,23 @@
 import json
-import random
 import uuid
 
 from flask import Flask, url_for, redirect, request, render_template, session
 from flask_socketio import SocketIO, emit, send, join_room, leave_room
 
-from .config import (
-    MIN_PLAYERS,
-    MAX_PLAYERS,
-    CARDS_ON_TABLE_IN_ROUND,
-)
+from .config import MIN_PLAYERS, MAX_PLAYERS
 from .database import select_one_from_db, select_all_from_db, write_to_db
-from .cards import build_deck
-from .game import change_player_points
-from .missions import assign_missions, process_missions
+from .money import purse, coin, compare_purses, sum_purses, sub_purses, SCN, RLG, PPR, CLT
+from .game import (
+    assign_vacancies,
+    issue_salaries,
+    init as init_game,
+    build_deck
+)
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
 socketio = SocketIO(app)
+
 
 # flask --app app.main run --debug
 # python -m app.main
@@ -26,9 +26,7 @@ socketio = SocketIO(app)
 
 def _join_player_to_room(player_name, room_id):
     # TODO: validate player_name and room_id
-    room = select_one_from_db(
-        "SELECT uid FROM rooms WHERE uid=:room_id", {"room_id": room_id}
-    )
+    room = select_one_from_db("SELECT uid FROM rooms WHERE uid=:room_id", {"room_id": room_id})
     if not room:
         raise Exception("Room not found.")
 
@@ -46,141 +44,21 @@ def _join_player_to_room(player_name, room_id):
     session["player_name"] = player_name
 
 
-def draw_cards(game_id):
+def _draw_cards(game_id):
     sql = f"""
         SELECT gd2.* FROM game_deck gd2
         INNER JOIN (
             SELECT gd1.family, MIN(gd1.tier) as tier FROM game_deck gd1
-            WHERE gd1.available=TRUE AND gd1.game_id=:game_id
+            WHERE gd1.is_available=TRUE AND gd1.game_id=:game_id
             GROUP BY 1
         ) as min_tier ON min_tier.tier = gd2.tier AND min_tier.family=gd2.family
         WHERE gd2.game_id = :game_id 
         ORDER BY RANDOM()
-        LIMIT {CARDS_ON_TABLE_IN_ROUND}"""
+        LIMIT 3"""
 
     cards = select_all_from_db(sql, {"game_id": game_id})
 
-    return [
-        {
-            "game_id": card["game_id"],
-            "card_id": card["name"],
-            "family": card["family"],
-            "tier": card["tier"],
-            "name": card["name"],
-            "points_to_succeed": card["points_to_succeed"],
-            "min_team": card["min_team"],
-            "max_team": card["max_team"],
-            "repeatable": card["repeatable"],
-            "on_success": json.loads(card["on_success"]),
-            "on_failure": json.loads(card["on_failure"]),
-            "feature": json.loads(card.get("feature")),
-            "vacancy": json.loads(card.get("vacancy")),
-        }
-        for card in cards
-    ]
-
-
-def rotate_players_order_in_round(game: dict):
-    """Rotate players order in round, set active_player and leader in round accordingly."""
-    new_order = game["players_order_in_round"]
-
-    # Rotate players order for next round
-    new_order.append(new_order.pop(0))
-    game["players_order_in_round"] = new_order
-    game["players_to_move"] = new_order
-    game["active_player"] = new_order[0]
-    game["leader"] = new_order[0]
-
-    return game
-
-
-def cancel_effects(cancel_effect: dict, effects: list):
-    """
-    Args:
-        cancel_effect: effect with name "cancel_effects"
-        effects: list of all current effects in game
-    """
-
-    cancel_type = cancel_effect["payload"]["cancel"]
-    if (
-        cancel_effect["payload"]["categories_of_players"] == ["all"]
-        and cancel_type == "all_effects"
-    ):
-        effects.clear()
-        return effects
-
-    effects.remove(cancel_effect)
-    cancel_effects_for_players = cancel_effect["payload"]["players"]
-    for eff in effects[:]:
-        payload = eff["payload"]
-        if cancel_type == "positive_effects":
-            if eff["type"] == "positive":
-                pass
-            else:
-                continue
-        elif cancel_type == "negative_effects":
-            if eff["type"] == "negative":
-                pass
-            else:
-                continue
-        else:  # cancel all effects
-            pass
-        payload["players"] = [
-            player
-            for player in payload["players"]
-            if player not in cancel_effects_for_players
-        ]
-        if len(payload["players"]) == 0:
-            effects.remove(eff)
-        else:
-            eff["payload"] = payload
-
-    return effects
-
-
-def apply_effects(game: dict, effects: list) -> dict:
-    """Get game from db, apply effects, return game.
-    Apply effects after round setup.
-    """
-    if len(effects) > 0 and effects[0]["name"] == "cancel_effects":
-        effects = cancel_effects(cancel_effect=effects[0], effects=effects)
-
-    expired_effects = []
-    for i, effect in enumerate(effects):
-        payload = effect["payload"]
-        players = payload["players"]
-        if effect["name"] == "change_player_points":
-            for player in players:
-                points = apply_feature("cards_reward", game, int(payload["points"]))
-                game = change_player_points(game, player, points)
-            payload["rounds_to_apply"] -= 1
-            if payload["rounds_to_apply"] <= 0:
-                expired_effects.append(i)
-        # elif effect["name"] == "leadership_ban_next_time":
-        #     if game["leader"] == players[0]:
-        #         game = rotate_players_order_in_round(game)
-        #         expired_effects.append(i)
-        elif effect["name"] == "give_overpayment":
-            overpayment = game["round_delta"]
-            if overpayment > 0:
-                points_to_each_player = overpayment // len(players)
-                for player in players:
-                    game = change_player_points(game, player, points_to_each_player)
-            expired_effects.append(i)
-        elif effect["name"] == "take_away_underpayment":
-            underpayment = game["round_delta"]
-            if underpayment < 0:
-                points_from_each_player = underpayment // len(players)
-                for player in players:
-                    game = change_player_points(game, player, points_from_each_player)
-            expired_effects.append(i)
-
-    effects = [
-        item for item in effects if item not in [effects[i] for i in expired_effects]
-    ]
-    game["effects_to_apply"] = effects
-
-    return game
+    return [json.loads(card.get("card")) for card in cards]
 
 
 @app.route("/")
@@ -226,395 +104,184 @@ def handle_player_enter(data):
 def handle_game_start(data):
     room_id = data["room_id"]
 
-    players = select_all_from_db(
-        "SELECT player_name FROM room_players WHERE room_id=:room_id",
-        {"room_id": room_id},
-    )
-    player_names = [pl["player_name"] for pl in players]
+    players = select_all_from_db("SELECT player_name FROM room_players WHERE room_id=:room_id", {"room_id": room_id})
 
-    game = {
-        "game_id": str(uuid.uuid4()),
-        "round": 1,
-        "players": tuple(player_names),
-        "vacancies": {},
-        "players_order_in_round": player_names,
-        "players_to_move": player_names,
-        "active_player": player_names[0],
-        "leader": player_names[0],
-        "all_players_points": {
-            pln: int(data["initial_player_points"]) for pln in player_names
-        },
-        "round_deposits": {},
-        "cards_selected_by_leader": [],
-        "team": [],
-        "effects_to_apply": [],
-        "rounds": int(data["rounds"]),
-        "card_effect_visibility": data["card_effect_visibility"],
-        "history": [],
-        "features": {},
-    }
-    game = assign_missions(game, int(data["initial_player_points"]))
-    cards = build_deck(len(player_names) + 1)
-    for card in cards:
-        write_to_db(
-            """INSERT INTO game_deck (
-                game_id, card_id, family, tier, name, points_to_succeed, min_team, max_team, on_success, on_failure, feature, vacancy
-            )
-            VALUES (
-                :game_id, :card_id, :family, :tier, :name, :points_to_succeed, :min_team, :max_team, :on_success, :on_failure, :feature, :vacancy
-            )""",
-            {
-                "game_id": game["game_id"],
-                "card_id": card["name"],
-                "family": card["family"],
-                "tier": card["tier"],
-                "name": card["name"],
-                "points_to_succeed": card["points_to_succeed"],
-                "min_team": card["min_team"],
-                "max_team": card["max_team"],
-                "repeatable": card["repeatable"],
-                "on_success": json.dumps(card["on_success"]),
-                "on_failure": json.dumps(card["on_failure"]),
-                "feature": json.dumps(card.get("feature")),
-                "vacancy": json.dumps(card.get("vacancy")),
-            },
-        )
+    game = init_game(players, int(data["rounds"]))
+    cards = build_deck()
+    _store_deck(cards, game['game_id'])
 
-    game["cards_on_table"] = draw_cards(game["game_id"])
+    game = _pre_round(game, 1)
 
-    rm = select_one_from_db(
-        "SELECT number_of_games FROM rooms WHERE uid=:room_id", {"room_id": room_id}
-    )
-    if rm["number_of_games"] > 0:
-        for rotation in range(rm["number_of_games"] % len(player_names)):
-            game = rotate_players_order_in_round(game)
     store_game(room_id, game)
 
     emit("game_started", build_payload(room_id), to=data["room_id"])
 
 
-@socketio.on("select_cards_from_table")
-def handle_select_cards_from_table(data):
-    """Card(s) can be selected only by leader in current round."""
+def _store_deck(cards, game_id):
+    for card in cards:
+        write_to_db(
+            """INSERT INTO game_deck (game_id, name, card_type, family, tier, is_available, card)
+               VALUES (:game_id, :name, :card_type, :family, :tier, :is_available, :card)""",
+            {
+                "game_id": game_id,
+                "name": card["name"],
+                "card_type": card["card_type"],
+                "family": card["family"],
+                "tier": card["tier"],
+                "is_available": True,
+                "card": json.dumps(card),
+            },
+        )
+
+
+@socketio.on("select_house_card")
+def handle_select_house_card(data):
+    """Card can be selected only by leader in current round."""
     room_id = data["room_id"]
     game = get_game(room_id)
 
-    for card in game["cards_on_table"]:
-        if card["card_id"] == data["selected_card_id"]:
-            game["cards_selected_by_leader"].append(card)
+    for card in game["round_cards_draw"]:
+        if card["name"] == data["selected_card_name"]:
+            game["selected_house"] = card
             break
 
+    game = _next_player(game)
+
     store_game(room_id, game)
-    emit("cards_for_round_selected", build_payload(room_id), to=room_id)
+    emit("house_card_selected", build_payload(room_id), to=room_id)
+
+
+@socketio.on("select_job")
+def handle_select_job(data):
+    room_id = data["room_id"]
+
+    game = get_game(room_id)
+    game['job_assignment'][data['selected_job']] = data['player_name']
+    game = _next_player(game)
+    store_game(room_id, game)
+
+    emit("job_selected", build_payload(room_id), to=room_id)
+
+    if len(game['job_assignment']) == len(game['players']):
+        game = _post_round(game)
+        if game['round'] == game['rounds']:
+            # todo rating
+            emit('game_over', build_payload(room_id), to=room_id)
+        else:
+            game = _pre_round(game, game['round'] + 1)
+            store_game(room_id, game)
+
+            emit("round_done", build_payload(room_id), to=room_id)
+
+
+def _post_round(game):
+    game = issue_salaries(game)
+    for house in game['houses']:
+        for job in house['jobs']:
+            game, _ = _process_job_deal(game, job)
+
+    house_card = game['selected_house']
+    game, is_house_built = _process_card(game, house_card)
+    if is_house_built:
+        game['houses'].append(house_card)
+        rm_card_from_deck(game['game_id'], house_card['name'])
+
+    game = assign_vacancies(game)
+
+    return game
+
+
+def _pre_round(game, round_n):
+    game['round'] = round_n
+    game["round_cards_draw"] = _draw_cards(game["game_id"])
+    game['leader'] = _player_next_to(game, game['leader'])
+    game['active_player'] = game['leader']
+    game['selected_house'] = None
+    game['job_assignment'].clear()
+
+    return game
+
+
+def _process_card(game, card):
+    built = True
+    for job in card['project_jobs']:
+        game, is_job_done = _process_job_deal(game, job)
+        built = built and is_job_done
+
+    return game, built
+
+
+def _process_job_deal(game, job):
+    assignee = game['job_assignment'].get(job['name'])
+    if not assignee:
+        return game, False
+
+    assignee_purse = game['players'][assignee]['purse']
+
+    # not enough money
+    if compare_purses(assignee_purse, job['deal'][0]) < 0:
+        return game, False
+
+    # take price
+    assignee_purse = sub_purses(assignee_purse, job['deal'][0])
+
+    # give reward
+    assignee_purse = sum_purses(assignee_purse, job['deal'][1])
+
+    game['players'][assignee]['purse'] = assignee_purse
+
+    return game, True
 
 
 def get_game(room_id):
-    result = select_one_from_db(
-        "SELECT game FROM rooms WHERE uid=:room_id", {"room_id": room_id}
-    )
+    result = select_one_from_db("SELECT game FROM rooms WHERE uid=:room_id", {"room_id": room_id})
 
     return json.loads(result["game"]) if result["game"] else None
 
 
 def store_game(room_id, game):
-    write_to_db(
-        "UPDATE rooms SET game=:game WHERE uid=:room_id",
-        {"game": json.dumps(game), "room_id": room_id},
-    )
+    write_to_db("UPDATE rooms SET game=:game WHERE uid=:room_id", {"game": json.dumps(game), "room_id": room_id})
 
 
-def move_to_next_player(game: dict):
-    """Change active player to next one"""
-    game["players_to_move"].pop(0)
-    if len(game["players_to_move"]) > 0:
-        game["active_player"] = game["players_to_move"][0]
-        return game, True
-    else:
-        return game, False
+def rm_card_from_deck(game_id, name):
+    write_to_db("UPDATE game_deck SET is_available=FALSE WHERE name=:name AND game_id=:game_id", {
+        "name": name,
+        "game_id": game_id
+    })
 
 
-def populate_players_to_whom_apply_effect(game: dict, effect: dict):
-    players_to_whom_apply = []
-    for category in effect["payload"]["categories_of_players"]:
-        if category == "all":
-            players_to_whom_apply.extend(game["players"])
-        elif category == "random_player":
-            players_to_whom_apply.extend(random.choice(game["players"]))
-        elif category == "others":
-            others = [
-                player
-                for player in game["players"]
-                if player not in game["team"] and player != game["leader"]
-            ]
-            players_to_whom_apply.extend(others)
-        elif category == "leader":
-            players_to_whom_apply.extend([game["leader"]])
-        elif category == "team":
-            players_to_whom_apply.extend(game["team"])
-        elif category == "minimal_contributors":
-            deposits = game["round_deposits"]
-            min_deposits = min(deposits.values())
-            min_deposits_players = [p for p in deposits if deposits[p] == min_deposits]
-            players_to_whom_apply.extend(min_deposits_players)
-        else:
-            raise RuntimeError("Unknown player category")
-
-    effect["payload"]["players"].extend(players_to_whom_apply)
-    return effect
-
-
-def assign_vacancy(game, card):
-    deposits = game["round_deposits"]
-    max_dep = max(deposits.values())
-    max_dep_players = [pl for pl in deposits if deposits[pl] == max_dep]
-    assignee = max_dep_players[0] if len(max_dep_players) == 1 else game["leader"]
-    vacancy = (
-        card["vacancy"]
-        if card["vacancy"]
-        else game["vacancies"][card["family"]]["vacancy"]
-    )
-    game["vacancies"][card["family"]] = {
-        "assignee": assignee,
-        "vacancy": vacancy,
-    }
-
+def _next_player(game):
+    game['active_player'] = _player_next_to(game, game['active_player'])
     return game
 
 
-def activate_card_feature(game, card):
-    if card.get("feature"):
-        game["features"][card["family"]] = card["feature"]
+def _player_next_to(game, player_name):
+    current_active_player = game['players_order'].index(player_name)
 
-    return game
+    next_player_idx = current_active_player + 1
 
+    if next_player_idx >= len(game['players_order']):
+        next_player_idx = 0
 
-def rm_card_from_deck(game_id, card_id):
-    write_to_db(
-        "UPDATE game_deck SET available=:available WHERE card_id=:card_id AND game_id=:game_id",
-        {
-            "card_id": card_id,
-            "game_id": game_id,
-            "available": False,
-        },
-    )
-
-
-def get_feature(feature: str, game: dict):
-    for card_family in game["features"]:
-        feat = game["features"][card_family]
-
-        if feat["type"] == feature:
-            return feat
-
-    return None
-
-
-def apply_feature(feature: str, game: dict, value: int):
-    feat = get_feature(feature, game)
-    magnitude = feat["magnitude"] if feat else 0
-
-    return value + magnitude
-
-
-def implement_project_result(game: dict):
-    """Check whether team succeeded or failed in ended round"""
-    card = game["cards_selected_by_leader"][0]
-
-    points_to_succeed = apply_feature(
-        "cards_cost", game, int(card["points_to_succeed"])
-    )
-
-    overpayment = sum(game["round_deposits"].values()) - points_to_succeed
-
-    is_success = overpayment >= 0
-
-    game["round_delta"] = overpayment
-    game["latest_round_result"] = is_success
-    game["history"].append({"card": card, "succeeded": is_success})
-
-    effects = card["on_success" if is_success else "on_failure"]
-    for effect in effects:
-        if effect:
-            effect = populate_players_to_whom_apply_effect(game, effect)
-            if effect["name"] == "cancel_effects":
-                game["effects_to_apply"] = [effect] + game["effects_to_apply"]
-            else:
-                game["effects_to_apply"].append(effect)
-
-    if is_success:
-        game = assign_vacancy(game, card)
-        game = activate_card_feature(game, card)
-
-        if not card["repeatable"]:
-            rm_card_from_deck(game["game_id"], card["card_id"])
-
-    card_has_no_vacancy = not card["vacancy"] or card["vacancy"] == "null"
-    family_vacancy_assigned = card["family"] in game["vacancies"]
-    if not is_success and card_has_no_vacancy and family_vacancy_assigned:
-        game = assign_vacancy(game, card)
-
-    return game, is_success
-
-
-def issue_salaries(game):
-    for family in game["vacancies"]:
-        assignment = game["vacancies"][family]
-        vacancy = assignment["vacancy"]
-        salary = apply_feature("clerks_salary", game, int(vacancy["income"]))
-        game = change_player_points(game, assignment["assignee"], salary)
-
-    return game
-
-
-def issue_incomes(game):
-    income_feat = get_feature("basic_income", game)
-    if income_feat:
-        for pl in game["players"]:
-            game = change_player_points(game, pl, int(income_feat["magnitude"]))
-
-    gift_feat = get_feature("gift", game)
-    if gift_feat:
-        pl = random.choice(list(game["players"]))
-        game = change_player_points(game, pl, int(gift_feat["magnitude"]))
-
-    return game
+    return game['players_order'][next_player_idx]
 
 
 @socketio.on("make_project_deposit")
 def handle_make_project_deposit(data):
     """Player make a points deposit during project development"""
     room_id = data["room_id"]
-    points = int(data["points"])
-
     game = get_game(room_id)
-    game = change_player_points(game, data["player_name"], -points)
-    game["round_deposits"][data["player_name"]] = points
-
-    game, has_player_to_move_next = move_to_next_player(game)
-    store_game(room_id, game)
-
-    payload = build_payload(room_id)
-    emit("project_deposited", payload, to=room_id)
-    emit("player_points_changed", payload, to=room_id)
-
-    if has_player_to_move_next:
-        emit("move_started", payload, to=room_id)
-    else:
-        game, is_success = implement_project_result(game)
-        game = issue_salaries(game)
-        game = apply_effects(game, game["effects_to_apply"])
-        game = issue_incomes(game)
-        game = process_missions(game, is_round_successful=is_success)
-
-        store_game(room_id, game)
-
-        emit("round_result", build_payload(room_id), to=room_id)
-
-        is_game_over = game["round"] >= game["rounds"]
-        if is_game_over:
-            write_to_db(
-                "UPDATE rooms SET game=NULL, number_of_games=number_of_games+1 WHERE uid=:room_id",
-                {"room_id": room_id},
-            )
-
-            payload = build_payload(room_id)
-            payload["rating"] = define_rating(game)
-
-            emit("game_ended", payload, to=room_id)
-        else:
-            # start next round
-            game["round"] += 1
-            game["round_deposits"] = {}
-            game["cards_on_table"] = draw_cards(game["game_id"])
-            game["cards_selected_by_leader"] = []
-            game["team"] = []
-
-            # Rotate players order for next round
-            players_order_in_new_round = game["players_order_in_round"]
-            players_order_in_new_round.append(players_order_in_new_round.pop(0))
-
-            game["players_order_in_round"] = players_order_in_new_round
-            game["players_to_move"] = players_order_in_new_round
-            game["active_player"] = players_order_in_new_round[0]
-            game["leader"] = players_order_in_new_round[0]
-
-            store_game(room_id, game)
-            emit("round_started", build_payload(room_id), to=room_id)
-
-
-@socketio.on("select_team_for_round")
-def handle_select_team_for_round(data):
-    """Team is selected by a leader.
-    Team should include
-        from min players of min(min_players from all selected cards)
-        to max players of max(max_players from all selected cards).
-    Data = {
-    "game_id": game_id,
-    "selected_players": [player_name1, player_name2 ...],
-    }
-    """
-    room_id = data["room_id"]
-    game = get_game(room_id)
-
-    # Check whether card(s) for a given round were selected already or not
-    if game["cards_selected_by_leader"] == []:
-        # TODO
-        raise
-
-    # How many min and max players should be in a team
-    min_players_in_team = min(
-        [int(card["min_team"]) for card in game["cards_selected_by_leader"]]
-    )
-    max_players_in_team = max(
-        [int(card["max_team"]) for card in game["cards_selected_by_leader"]]
-    )
-
-    # Check whether leader selected appropriate number of players
-    if min_players_in_team <= len(data["selected_players"]) <= max_players_in_team:
-        game["team"] = data["selected_players"]
-        game["players_to_move"] = [""] + game["team"]
-    else:
-        # TODO
-        raise
-
-    game, _ = move_to_next_player(game)
-    store_game(room_id, game)
-
-    emit("team_for_round_selected", build_payload(room_id), to=room_id)
 
 
 @socketio.on("select_player_portrait")
 def handle_portrait_select(data):
-    """Portrait is selected by a player.
-    Data = {
-    "player_name": player_name,
-    "room_id": room_id,
-    "portrait_id": portrait_id,
-    }
-    """
+    """Portrait is selected by a player"""
     room_id = data["room_id"]
 
-    write_to_db(
-        "UPDATE room_players SET portrait_id=:portrait_id WHERE room_id=:room_id AND player_name=:player_name",
-        {
-            "room_id": room_id,
-            "portrait_id": data["portrait_id"],
-            "player_name": data["player_name"],
-        },
-    )
+    write_to_db("UPDATE room_players SET portrait_id=:portrait_id WHERE room_id=:room_id AND player_name=:player_name",
+                {"room_id": room_id, "portrait_id": data["portrait_id"], "player_name": data["player_name"]})
 
     emit("player_portrait_selected", build_payload(room_id), to=room_id)
-
-
-def define_rating(game: dict):
-    """Returns rating of all players in the game and winner(s).
-    If multiple players have the same max number of points, they all are winners.
-    """
-
-    all_players_points = game["all_players_points"]
-    rating = sorted(all_players_points.items(), key=lambda item: int(item[1]))[::-1]
-
-    return rating
 
 
 def build_payload(room_id):
